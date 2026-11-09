@@ -40,7 +40,7 @@
     resultBlank: $('#result-blank'), resultMessage: $('#result-message'), subjectPerformanceList: $('#subject-performance-list'),
     subjectPerformanceTitle: $('#subject-performance-title'), subjectPerformanceDescription: $('#subject-performance-description'),
     subjectGroup: $('#subject-group'), subjectSort: $('#subject-sort'), reviewCount: $('#review-count'),
-    reviewList: $('#review-list'), scoreRing: $('#score-ring'), historyBody: $('#history-body'),
+    reviewList: $('#review-list'), reviewSubjectFilter: $('#review-subject-filter'), scoreRing: $('#score-ring'), historyBody: $('#history-body'),
     historyEmpty: $('#history-empty'), historyCount: $('#history-count'), toast: $('#toast'),
     dialog: $('#confirm-dialog'), dialogTitle: $('#dialog-title'), dialogMessage: $('#dialog-message'),
     dialogCancel: $('#dialog-cancel'), dialogConfirm: $('#dialog-confirm'), importFile: $('#import-file'),
@@ -57,6 +57,7 @@
   let subjectGroup = 'subject';
   let subjectSortOrder = 'desc';
   let activeReviewFilter = 'all';
+  let activeReviewSubject = 'all';
   let detailReturnScreen = 'correction';
   let toastTimeout;
   let pendingConfirm = null;
@@ -378,12 +379,19 @@
     $('[data-count="wrong"]').textContent = String(countByStatus.wrong);
     $('[data-count="blank"]').textContent = String(countByStatus.blank);
 
+    const examSubjects = [...new Set(result.details.map(detail => detail.subject))]
+      .sort((a, b) => SUBJECTS.indexOf(a) - SUBJECTS.indexOf(b));
+    els.reviewSubjectFilter.innerHTML = '<option value="all">Todas as matérias</option>' +
+      examSubjects.map(subject => `<option value="${escapeHTML(subject)}">${escapeHTML(subject)}</option>`).join('');
+    activeReviewSubject = 'all';
+    els.reviewSubjectFilter.value = 'all';
+
     els.reviewList.innerHTML = result.details.map(detail => {
       const statusText = detail.status === 'correct' ? '✓ Acertou' : detail.status === 'wrong' ? '✕ Errou' : '— Em branco';
       const yourAnswer = detail.answer || '—';
       const answerDescription = detail.status === 'correct' ? 'Resposta certa' : detail.status === 'wrong' ? 'Resposta diferente do gabarito' : 'Questão sem resposta';
       const subject = subjectTag(detail.subject, 'review-subject-large');
-      return `<article class="review-card ${detail.status}" data-status="${detail.status}">
+      return `<article class="review-card ${detail.status}" data-status="${detail.status}" data-subject="${escapeHTML(detail.subject)}">
         <div class="review-card-top"><span class="review-question-number">Questão ${detail.number}</span><span class="review-status ${detail.status}">${statusText}</span></div>
         <div class="review-card-subject">${subject}</div>
         <div class="review-answer-pair">
@@ -400,10 +408,11 @@
     const direction = subjectSortOrder === 'asc' ? 1 : -1;
     const results = areaMode
       ? KNOWLEDGE_AREAS.map(area => {
-        const counts = activeSubjectResults
-          .filter(result => area.subjects.includes(result.subject))
-          .reduce((total, result) => ({correct: total.correct + result.correct, total: total.total + result.total}), {correct: 0, total: 0});
-        return {subject: area.name, ...counts, colors: area.colors};
+        const parts = area.subjects
+          .map(name => activeSubjectResults.find(result => result.subject === name))
+          .filter(Boolean);
+        const counts = parts.reduce((total, result) => ({correct: total.correct + result.correct, total: total.total + result.total}), {correct: 0, total: 0});
+        return {subject: area.name, ...counts, colors: area.colors, parts};
       }).filter(result => result.total > 0)
       : activeSubjectResults;
     const sorted = [...results].sort((a, b) => {
@@ -412,9 +421,9 @@
     });
     els.subjectPerformanceTitle.textContent = areaMode ? 'Desempenho por área do conhecimento' : 'Desempenho por matéria';
     els.subjectPerformanceDescription.textContent = areaMode
-      ? 'Acertos somados sobre o total de questões das matérias de cada área. “Sem matéria” e “Outra” não entram nesta visualização.'
+      ? 'Soma automática das questões de todas as matérias de cada área. “Sem matéria” e “Outra” não entram nesta visualização.'
       : 'Acertos sobre o total de questões da matéria, incluindo as em branco.';
-    els.subjectPerformanceList.innerHTML = sorted.map(({subject, correct, total, colors}) => {
+    els.subjectPerformanceList.innerHTML = sorted.map(({subject, correct, total, colors, parts}) => {
       const percent = total ? correct / total * 100 : 0;
       const perfect = correct === total;
       const style = areaMode
@@ -426,6 +435,7 @@
       return `<article class="subject-performance-card${perfect ? ' perfect-score' : ''}" style="${style}">
         <div class="subject-performance-top"><div class="subject-performance-subject">${subjectLabel}${perfect ? '<svg class="subject-perfect-trophy" role="img" aria-label="Aproveitamento perfeito" viewBox="0 0 24 24"><path d="M7 3h10v3h4v3a5 5 0 0 1-5 5h-.4a5 5 0 0 1-2.6 2.7V20h4v2H7v-2h4v-3.3A5 5 0 0 1 8.4 14H8a5 5 0 0 1-5-5V6h4V3Zm0 5H5v1a3 3 0 0 0 2.7 3A8 8 0 0 1 7 9V8Zm10 0v1a8 8 0 0 1-.7 3A3 3 0 0 0 19 9V8h-2Z"/></svg>' : ''}</div><strong>${percent.toFixed(1).replace('.', ',')}%</strong></div>
         <div class="subject-performance-score">${correct}/${total} <span>acertos</span></div>
+        ${areaMode ? `<div class="area-breakdown">${parts.map(part => `<span>${escapeHTML(part.subject)} <b>${part.correct}/${part.total}</b></span>`).join('')}</div>` : ''}
         <div class="subject-performance-track" role="img" aria-label="${correct} de ${total} acertos, ${percent.toFixed(1).replace('.', ',')}%">
           <span style="width:${percent}%"></span>
         </div>
@@ -440,17 +450,26 @@
     subjectSortOrder = els.subjectSort.value;
     renderSubjectPerformance();
   });
-  function setReviewFilter(filter) {
-    activeReviewFilter = filter;
-    document.querySelectorAll('.review-filter').forEach(button => button.classList.toggle('active', button.dataset.filter === filter));
+  function applyReviewFilters() {
     let visible = 0;
     els.reviewList.querySelectorAll('.review-card').forEach(card => {
-      const show = filter === 'all' || card.dataset.status === filter;
+      const matchesStatus = activeReviewFilter === 'all' || card.dataset.status === activeReviewFilter;
+      const matchesSubject = activeReviewSubject === 'all' || card.dataset.subject === activeReviewSubject;
+      const show = matchesStatus && matchesSubject;
       card.classList.toggle('filtered-out', !show);
       if (show) visible++;
     });
     els.reviewNoResults.classList.toggle('hidden', visible > 0);
   }
+  function setReviewFilter(filter) {
+    activeReviewFilter = filter;
+    document.querySelectorAll('.review-filter').forEach(button => button.classList.toggle('active', button.dataset.filter === filter));
+    applyReviewFilters();
+  }
+  els.reviewSubjectFilter.addEventListener('change', () => {
+    activeReviewSubject = els.reviewSubjectFilter.value;
+    applyReviewFilters();
+  });
   document.querySelectorAll('.review-filter').forEach(button => {
     button.addEventListener('click', () => setReviewFilter(button.dataset.filter));
   });
@@ -470,32 +489,31 @@
       const subjectTags = subjects.length
         ? `${subjects.slice(0, 5).map(subject => subjectTag(subject, 'history-subject-tag')).join('')}${subjects.length > 5 ? `<span class="subject-overflow">+${subjects.length - 5}</span>` : ''}`
         : subjectTag('Sem matéria', 'history-subject-tag');
-      const preview = result.details.slice(0, 8).map(detail => `<span class="mini-answer ${detail.status}" title="Questão ${detail.number}: sua resposta ${detail.answer || 'em branco'}; gabarito ${detail.key}"><small>${detail.number}</small><b>${escapeHTML(detail.answer || '—')}</b><i>${escapeHTML(detail.key)}</i></span>`).join('');
       return `<article class="history-card" data-id="${escapeHTML(item.id)}">
         <div class="history-card-top"><div class="exam-icon">▤</div><div class="history-card-title"><h3 title="${escapeHTML(item.title || '')}">${escapeHTML(item.title || `Prova de ${result.total} questões`)}</h3><p>${escapeHTML(formatDate(item.updatedAt || item.createdAt))} · ${result.total} questões · começa na ${Number(item.start) || 1}</p></div><span class="score-pill ${scoreClass}">${result.correct}/${result.total}</span></div>
         <div class="history-score-row"><strong>${pct.toFixed(1).replace('.', ',')}%</strong><div class="history-progress-track"><div class="history-progress-fill" style="width:${pct}%"></div></div><span>${result.correct} certas · ${result.wrong} erradas · ${result.blank} em branco</span></div>
         <div class="history-subject-tags">${subjectTags}</div>
-        <div class="history-preview"><div class="history-preview-heading">Prévia das respostas <span>Você / Oficial</span></div><div class="history-preview-list">${preview}${result.total > 8 ? `<span class="more-answers">+${result.total - 8} questões</span>` : ''}</div></div>
         <div class="history-card-actions"><button class="row-action view" type="button" data-action="view">Ver gabarito completo <span>→</span></button><button class="row-action" type="button" data-action="edit">Editar</button><button class="row-action delete" type="button" data-action="delete">Excluir</button></div>
       </article>`;
     }).join('');
     els.historyEmpty.classList.toggle('hidden', submissions.length > 0);
     els.historyBody.classList.toggle('hidden', submissions.length === 0);
-    els.historyCount.textContent = `${submissions.length} ${submissions.length === 1 ? 'gabarito salvo' : 'gabaritos salvos'}`;
+    els.historyCount.textContent = `${submissions.length} ${submissions.length === 1 ? 'correção salva' : 'correções salvas'}`;
   }
   els.historyBody.addEventListener('click', event => {
+    const card = event.target.closest('.history-card[data-id]');
+    if (!card) return;
     const button = event.target.closest('button[data-action]');
-    if (!button) return;
-    const card = button.closest('.history-card[data-id]');
-    const item = submissions.find(entry => entry.id === card?.dataset.id);
+    const item = submissions.find(entry => entry.id === card.dataset.id);
     if (!item) return;
-    if (button.dataset.action === 'view') {
+    const action = button ? button.dataset.action : 'view';
+    if (action === 'view') {
       renderResult(item);
       setDetailMode('result');
       showScreen('detail', 'history');
     }
-    if (button.dataset.action === 'edit') editSubmission(item);
-    if (button.dataset.action === 'delete') askConfirm({
+    if (action === 'edit') editSubmission(item);
+    if (action === 'delete') askConfirm({
       title: 'Excluir este envio?',
       message: `“${item.title}” será removido do histórico. Essa ação não pode ser desfeita.`,
       confirmText: 'Excluir envio',

@@ -96,7 +96,7 @@
         <article class="stat-card"><div class="stat-top"><span class="stat-label">Melhor resultado</span><span class="stat-icon gold">✦</span></div><div class="stat-value" id="stat-best">—<small>%</small></div><div class="stat-foot" id="stat-best-caption">Seu recorde pessoal</div></article>
       </section>
       <section class="panel history-panel" id="historico">
-        <div class="history-heading"><div class="heading-left"><div class="heading-icon history-icon">◷</div><div><h2>Histórico de gabaritos</h2><p>Abra uma correção anterior para rever cada questão, suas respostas e o gabarito oficial.</p></div></div><div class="history-actions"><button class="text-button" type="button" id="export-button">↓ Exportar cópia</button><button class="text-button" type="button" id="import-trigger">↑ Importar</button><input type="file" id="import-file" accept="application/json,.json" hidden /><button class="icon-button" id="clear-history-button" type="button" title="Apagar histórico" aria-label="Apagar histórico">⌫</button></div></div>
+        <div class="history-heading"><div class="heading-left"><div class="heading-icon history-icon">◷</div><div><h2>Histórico de correções</h2><p>Abra uma correção anterior para rever cada questão, suas respostas e o gabarito oficial.</p></div></div><div class="history-actions"><button class="text-button" type="button" id="export-button">↓ Exportar cópia</button><button class="text-button" type="button" id="import-trigger">↑ Importar</button><input type="file" id="import-file" accept="application/json,.json" hidden /><button class="icon-button" id="clear-history-button" type="button" title="Apagar histórico" aria-label="Apagar histórico">⌫</button></div></div>
         <div class="history-card-grid" id="history-body"></div>
         <div class="history-empty" id="history-empty"><div class="history-empty-icon">◷</div><strong>Nenhum gabarito salvo ainda</strong><p>Depois de corrigir e salvar uma prova, você poderá abrir a correção completa aqui.</p></div>
         <div class="history-footer"><span id="history-count">0 envios salvos</span><span><span class="storage-dot"></span> Armazenado localmente neste navegador</span></div>
@@ -165,7 +165,7 @@
         </div>
 
         <aside class="result-panel panel hidden" id="result-panel">
-          <div class="result-panel-heading"><div><p class="eyebrow">RESULTADO</p><h2>Seu desempenho</h2><p class="result-exam-name" id="result-exam-name">Selecione um gabarito para ver os detalhes</p></div><span class="result-status" id="result-status">Aguardando</span></div>
+          <div class="result-panel-heading"><div><p class="eyebrow">RESULTADO</p><h2>Seu desempenho</h2><p class="result-exam-name" id="result-exam-name">Selecione um gabarito para ver os detalhes</p></div><div class="result-top-actions"><span class="result-status hidden" id="result-status">Aguardando</span><button class="button button-secondary" id="new-correction-button" type="button">+ Nova correção</button><button class="button button-primary" id="detail-edit-button" type="button">Editar correção</button></div></div>
           <div class="result-empty" id="result-empty"><div class="empty-chart"><svg viewBox="0 0 120 120" role="img" aria-label="Gráfico de desempenho vazio"><circle cx="60" cy="60" r="47" fill="none" stroke="#eef0f5" stroke-width="10"/><circle cx="60" cy="60" r="47" fill="none" stroke="#dce3ee" stroke-width="10" stroke-dasharray="8 8" stroke-linecap="round" transform="rotate(-90 60 60)"/></svg><span>?</span></div><h3>O resultado aparece aqui</h3><p>Depois de preencher suas respostas, você verá seus acertos, erros e percentual.</p></div>
           <div class="result-content hidden" id="result-content">
             <div class="score-ring" id="score-ring"><div class="ring-center"><strong id="result-percent">0<small>%</small></strong><span>de acertos</span></div></div>
@@ -197,10 +197,10 @@
               <button type="button" class="review-filter correct-filter" data-filter="correct">✓ Acertadas <span data-count="correct">0</span></button>
               <button type="button" class="review-filter wrong-filter" data-filter="wrong">✕ Erradas <span data-count="wrong">0</span></button>
               <button type="button" class="review-filter blank-filter" data-filter="blank">— Em branco <span data-count="blank">0</span></button>
+              <select id="review-subject-filter" class="review-subject-filter" aria-label="Filtrar questões por matéria"><option value="all">Todas as matérias</option></select>
             </div>
             <div class="review-list" id="review-list"></div>
             <p class="review-no-results hidden" id="review-no-results">Nenhuma questão nesta categoria.</p>
-            <div class="detail-actions"><button class="button button-secondary" id="new-correction-button" type="button">+ Nova correção</button><button class="button button-primary" id="detail-edit-button" type="button">Editar correção</button></div>
           </div>
         </aside>
       </section>

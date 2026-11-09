@@ -255,3 +255,16 @@
   .detail-actions{flex-direction:column}
   .detail-actions .button{width:100%}
 }
+
+/* Ajustes: histórico clicável, detalhamento por área e ações no topo do resultado */
+.history-card { cursor: pointer; }
+.area-breakdown { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.area-breakdown span { padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,.7); color: var(--subject-ink); font-size: 11px; font-weight: 600; }
+.area-breakdown b { font-weight: 800; }
+.result-top-actions { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; justify-content: flex-end; }
+.result-top-actions .button { min-width: 0; }
+
+.review-subject-filter { min-height: 36px; padding: 7px 30px 7px 12px; border: 1px solid #e5eaf2; border-radius: 10px; background: #fff; color: #334155; font-size: 11px; font-weight: 600; outline: none; }
+.review-subject-filter:focus { border-color: #67cba6; box-shadow: 0 0 0 3px #2bb98516; }
+@media (max-width: 720px) { .review-subject-filter { min-height: 34px; font-size: 10px; } }
+.review-filters .review-subject-filter { margin-left: auto; }
