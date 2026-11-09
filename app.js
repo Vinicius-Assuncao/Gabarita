@@ -332,7 +332,7 @@
       activeResultId = null;
       els.resultStatus.textContent = 'Aguardando';
       els.resultStatus.classList.remove('done');
-      els.resultExamName.textContent = 'Selecione um gabarito para ver os detalhes';
+      els.resultExamName.textContent = '';
       els.resultEmpty.classList.remove('hidden');
       els.resultContent.classList.add('hidden');
       return;
