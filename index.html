@@ -173,13 +173,21 @@
             <div class="result-message" id="result-message"><span class="message-icon">✦</span><div><strong>Correção concluída!</strong><p>Confira questão por questão abaixo.</p></div></div>
             <section class="subject-performance" aria-labelledby="subject-performance-title">
               <div class="subject-performance-heading">
-                <div><h3 id="subject-performance-title">Desempenho por matéria</h3><p>Acertos sobre o total de questões da matéria, incluindo as em branco.</p></div>
-                <label class="subject-sort-control" for="subject-sort">Ordenar:
-                  <select id="subject-sort">
-                    <option value="desc">Maior % primeiro</option>
-                    <option value="asc">Menor % primeiro</option>
-                  </select>
-                </label>
+                <div><h3 id="subject-performance-title">Desempenho por matéria</h3><p id="subject-performance-description">Acertos sobre o total de questões da matéria, incluindo as em branco.</p></div>
+                <div class="subject-performance-controls">
+                  <label class="subject-sort-control" for="subject-group">Organizar:
+                    <select id="subject-group">
+                      <option value="subject">Por matéria</option>
+                      <option value="area">Por área do conhecimento</option>
+                    </select>
+                  </label>
+                  <label class="subject-sort-control" for="subject-sort">Ordenar:
+                    <select id="subject-sort">
+                      <option value="desc">Maior % primeiro</option>
+                      <option value="asc">Menor % primeiro</option>
+                    </select>
+                  </label>
+                </div>
               </div>
               <div class="subject-performance-list" id="subject-performance-list"></div>
             </section>

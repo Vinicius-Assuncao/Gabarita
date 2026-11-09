@@ -78,6 +78,7 @@
 .subject-performance-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .subject-performance-heading h3 { margin: 0; color: #202b40; font: 800 15px 'Manrope', sans-serif; }
 .subject-performance-heading p { margin: 5px 0 0; color: #8390a4; font-size: 11px; line-height: 1.5; }
+.subject-performance-controls { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .subject-sort-control { display: flex; align-items: center; gap: 7px; flex-shrink: 0; color: #68758a; font-size: 10px; font-weight: 700; }
 .subject-sort-control select { min-height: 34px; padding: 0 28px 0 9px; border: 1px solid #dfe6ee; border-radius: 8px; background: #fff; color: #344256; font-size: 10px; font-weight: 700; }
 .subject-performance-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 10px; margin-top: 13px; }
@@ -93,11 +94,15 @@
 .subject-performance-score span { color: #778195; font: 600 10px 'DM Sans', sans-serif; }
 .subject-performance-track { height: 7px; overflow: hidden; margin-top: 9px; border-radius: 999px; background: #fff9; }
 .subject-performance-track span { display: block; height: 100%; border-radius: inherit; background: var(--subject-ink, #22a879); }
+@media (max-width: 900px) {
+  .subject-performance-heading { align-items: flex-start; flex-direction: column; }
+  .subject-performance-controls { width: 100%; justify-content: space-between; }
+}
 @media (max-width: 590px) {
   .subject-performance { padding: 13px; }
-  .subject-performance-heading { align-items: flex-start; flex-direction: column; }
+  .subject-performance-controls { width: 100%; flex-direction: column; align-items: stretch; gap: 8px; }
   .subject-sort-control { width: 100%; justify-content: space-between; }
-  .subject-sort-control select { flex: 1; max-width: 210px; }
+  .subject-sort-control select { flex: 1; min-width: 0; max-width: 210px; }
 }
 
 /* Histórico em cartões: cada correção antiga fica fácil de localizar e abrir. */

@@ -4,6 +4,12 @@
   const STORAGE_KEY = 'gabarita_submissions_v1';
   const LETTERS = ['A', 'B', 'C', 'D', 'E'];
   const SUBJECTS = ['Sem matéria', 'Matemática', 'Física', 'Química', 'Biologia', 'História', 'Geografia', 'Filosofia', 'Sociologia', 'Português', 'Literatura', 'Inglês', 'Redação', 'Artes', 'Educação Física', 'Outra'];
+  const KNOWLEDGE_AREAS = [
+    {name: 'Linguagens', subjects: ['Português', 'Literatura', 'Inglês', 'Redação', 'Artes', 'Educação Física'], colors: {bg:'#e4f3ff', border:'#71b1fb', ink:'#126b9f', light:'#f1fcff'}},
+    {name: 'Ciências da Natureza', subjects: ['Física', 'Química', 'Biologia'], colors: {bg:'#dcfce7', border:'#4ade80', ink:'#166534', light:'#f0fdf4'}},
+    {name: 'Ciências Humanas', subjects: ['História', 'Geografia', 'Filosofia', 'Sociologia'], colors: {bg:'#ffd6d5', border:'#fb523c', ink:'#9a2612', light:'#ffefed'}},
+    {name: 'Matemática', subjects: ['Matemática'], colors: {bg:'#f9e6a8', border:'#d8a620', ink:'#73520b', light:'#fff8e3'}}
+  ];
   const SUBJECT_COLORS = {
     'Sem matéria': {bg:'#f1f5f9', border:'#cbd5e1', ink:'#475569', light:'#f8fafc'},
     'Matemática': {bg:'#f9e6a8', border:'#d8a620', ink:'#73520b', light:'#fff8e3'},
@@ -32,7 +38,8 @@
     resultExamName: $('#result-exam-name'), reviewNoResults: $('#review-no-results'),
     resultPercent: $('#result-percent'), resultCorrect: $('#result-correct'), resultWrong: $('#result-wrong'),
     resultBlank: $('#result-blank'), resultMessage: $('#result-message'), subjectPerformanceList: $('#subject-performance-list'),
-    subjectSort: $('#subject-sort'), reviewCount: $('#review-count'),
+    subjectPerformanceTitle: $('#subject-performance-title'), subjectPerformanceDescription: $('#subject-performance-description'),
+    subjectGroup: $('#subject-group'), subjectSort: $('#subject-sort'), reviewCount: $('#review-count'),
     reviewList: $('#review-list'), scoreRing: $('#score-ring'), historyBody: $('#history-body'),
     historyEmpty: $('#history-empty'), historyCount: $('#history-count'), toast: $('#toast'),
     dialog: $('#confirm-dialog'), dialogTitle: $('#dialog-title'), dialogMessage: $('#dialog-message'),
@@ -47,6 +54,7 @@
   let editingId = null;
   let activeResultId = null;
   let activeSubjectResults = [];
+  let subjectGroup = 'subject';
   let subjectSortOrder = 'desc';
   let activeReviewFilter = 'all';
   let detailReturnScreen = 'correction';
@@ -388,16 +396,35 @@
     setReviewFilter('all');
   }
   function renderSubjectPerformance() {
+    const areaMode = subjectGroup === 'area';
     const direction = subjectSortOrder === 'asc' ? 1 : -1;
-    const sorted = [...activeSubjectResults].sort((a, b) => {
+    const results = areaMode
+      ? KNOWLEDGE_AREAS.map(area => {
+        const counts = activeSubjectResults
+          .filter(result => area.subjects.includes(result.subject))
+          .reduce((total, result) => ({correct: total.correct + result.correct, total: total.total + result.total}), {correct: 0, total: 0});
+        return {subject: area.name, ...counts, colors: area.colors};
+      }).filter(result => result.total > 0)
+      : activeSubjectResults;
+    const sorted = [...results].sort((a, b) => {
       const percentageDifference = (a.correct * b.total - b.correct * a.total) * direction;
       return percentageDifference || b.correct - a.correct || a.subject.localeCompare(b.subject, 'pt-BR');
     });
-    els.subjectPerformanceList.innerHTML = sorted.map(({subject, correct, total}) => {
+    els.subjectPerformanceTitle.textContent = areaMode ? 'Desempenho por área do conhecimento' : 'Desempenho por matéria';
+    els.subjectPerformanceDescription.textContent = areaMode
+      ? 'Acertos somados sobre o total de questões das matérias de cada área. “Sem matéria” e “Outra” não entram nesta visualização.'
+      : 'Acertos sobre o total de questões da matéria, incluindo as em branco.';
+    els.subjectPerformanceList.innerHTML = sorted.map(({subject, correct, total, colors}) => {
       const percent = total ? correct / total * 100 : 0;
       const perfect = correct === total;
-      return `<article class="subject-performance-card${perfect ? ' perfect-score' : ''}" style="${subjectStyle(subject)}">
-        <div class="subject-performance-top"><div class="subject-performance-subject">${subjectTag(subject)}${perfect ? '<svg class="subject-perfect-trophy" role="img" aria-label="Aproveitamento perfeito" viewBox="0 0 24 24"><path d="M7 3h10v3h4v3a5 5 0 0 1-5 5h-.4a5 5 0 0 1-2.6 2.7V20h4v2H7v-2h4v-3.3A5 5 0 0 1 8.4 14H8a5 5 0 0 1-5-5V6h4V3Zm0 5H5v1a3 3 0 0 0 2.7 3A8 8 0 0 1 7 9V8Zm10 0v1a8 8 0 0 1-.7 3A3 3 0 0 0 19 9V8h-2Z"/></svg>' : ''}</div><strong>${percent.toFixed(1).replace('.', ',')}%</strong></div>
+      const style = areaMode
+        ? `--subject-bg:${colors.bg};--subject-border:${colors.border};--subject-ink:${colors.ink};--subject-light:${colors.light}`
+        : subjectStyle(subject);
+      const subjectLabel = areaMode
+        ? `<span class="review-subject" style="${style}">✦ ${escapeHTML(subject)}</span>`
+        : subjectTag(subject);
+      return `<article class="subject-performance-card${perfect ? ' perfect-score' : ''}" style="${style}">
+        <div class="subject-performance-top"><div class="subject-performance-subject">${subjectLabel}${perfect ? '<svg class="subject-perfect-trophy" role="img" aria-label="Aproveitamento perfeito" viewBox="0 0 24 24"><path d="M7 3h10v3h4v3a5 5 0 0 1-5 5h-.4a5 5 0 0 1-2.6 2.7V20h4v2H7v-2h4v-3.3A5 5 0 0 1 8.4 14H8a5 5 0 0 1-5-5V6h4V3Zm0 5H5v1a3 3 0 0 0 2.7 3A8 8 0 0 1 7 9V8Zm10 0v1a8 8 0 0 1-.7 3A3 3 0 0 0 19 9V8h-2Z"/></svg>' : ''}</div><strong>${percent.toFixed(1).replace('.', ',')}%</strong></div>
         <div class="subject-performance-score">${correct}/${total} <span>acertos</span></div>
         <div class="subject-performance-track" role="img" aria-label="${correct} de ${total} acertos, ${percent.toFixed(1).replace('.', ',')}%">
           <span style="width:${percent}%"></span>
@@ -405,6 +432,10 @@
       </article>`;
     }).join('');
   }
+  els.subjectGroup.addEventListener('change', () => {
+    subjectGroup = els.subjectGroup.value;
+    renderSubjectPerformance();
+  });
   els.subjectSort.addEventListener('change', () => {
     subjectSortOrder = els.subjectSort.value;
     renderSubjectPerformance();

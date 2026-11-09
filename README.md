@@ -1,10 +1,5 @@
 # Gabarita — Correção de vestibulares e simulados
 
-## Como abrir
-1. Extraia a pasta `gabarita-site`.
-2. Abra `index.html` no navegador.
-3. Para atualizar uma instalação que já tem histórico, substitua `index.html`, `styles.css` e `app.js` **na mesma pasta em que você já abre o site**.
-
 ## Histórico
 As provas ficam salvos no armazenamento local do navegador (`localStorage`), usando a chave `gabarita_submissions_v1`. Esta versão mantém a mesma chave e o mesmo formato dos registros, e não apaga o histórico automaticamente.
 
@@ -14,7 +9,7 @@ Como precaução, use **Exportar cópia** no histórico antes de substituir os a
 - Tela inicial com atalhos para começar uma correção ou abrir o histórico; navegação separada para corrigir gabaritos e consultar estatísticas e correções anteriores. Correções abertas ou editadas aparecem em uma tela de detalhe com opção de voltar.
 - Correção automática das respostas.
 - Organização opcional de cada questão por matéria, com cores próprias.
-- Resumo de acertos e porcentagem por matéria em cada prova corrigida, com ordenação, desempate pelo total de acertos e destaque para matérias com 100% de acertos.
+- Resumo de acertos e porcentagem por matéria ou área do conhecimento em cada prova corrigida, com ordenação, desempate pelo total de acertos e destaque para matérias ou áreas com 100% de acertos.
 - Cartões maiores para comparar sua resposta ao gabarito oficial.
 - Filtros para ver todas as questões, apenas as acertadas, erradas ou em branco.
 - Histórico de correções com estatísticas gerais, prévia das respostas, opção de abrir a revisão completa, editar e excluir.
