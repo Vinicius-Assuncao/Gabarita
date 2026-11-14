@@ -151,6 +151,16 @@
 .history-card-actions .row-action.view { background: #e7f8ef; color: #148358; }
 .history-card-actions .row-action.view:hover { background: #d4f4e2; }
 .history-card-actions .row-action.view span { margin-left: 5px; font-size: 13px; }
+.history-storage-row { display: flex; align-items: center; justify-content: flex-end; margin-top: 8px; }
+.history-card .storage-action { width: 34px; height: 34px; display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: 9px; background: transparent; }
+.history-card .storage-action .material-symbols-outlined { font-size: 20px; }
+.history-card .storage-action.local { color: #d49a16; }
+.history-card .storage-action.cloud { color: #2878d4; }
+.history-card .storage-action:hover:not(:disabled) { background: #f1f5f9; }
+.history-card .storage-action.local:hover:not(:disabled) { background: #fff8e6; }
+.history-card .storage-action.cloud:hover:not(:disabled) { background: #edf5ff; }
+.history-card .storage-action:disabled { cursor: not-allowed; }
+.history-card .storage-action.pending { opacity: .75; }
 .history-empty { padding: 34px 12px 38px; }
 .history-empty strong { font-size: 13px; }
 .history-empty p { font-size: 11px; line-height: 1.55; }

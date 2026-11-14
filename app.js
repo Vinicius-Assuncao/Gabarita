@@ -57,6 +57,7 @@
   };
 
   let submissions = loadSubmissions();
+  let cloudSubmissionIds = new Set();
   let currentDraft = null;
   let editingId = null;
   let activeResultId = null;
@@ -97,11 +98,21 @@
   }
   function getUserCacheKey(userId) { return `gabarita_submissions_v1_user_${userId}`; }
   function getPendingQueueKey(userId) { return `gabarita_pending_v1_user_${userId}`; }
-  function getActiveStorageKey() { return currentUser ? getUserCacheKey(currentUser.id) : STORAGE_KEY; }
 
   function saveSubmissions() {
-    try { localStorage.setItem(getActiveStorageKey(), JSON.stringify(submissions)); return true; }
-    catch (error) { showToast('Não foi possível salvar. O armazenamento do navegador pode estar cheio.'); return false; }
+    try {
+      const localSubmissions = submissions.filter(item => !cloudSubmissionIds.has(item.id));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(localSubmissions));
+      if (currentUser) {
+        const cloudSubmissions = submissions.filter(item => cloudSubmissionIds.has(item.id));
+        localStorage.setItem(getUserCacheKey(currentUser.id), JSON.stringify(cloudSubmissions));
+      }
+      return true;
+    } catch (error) {
+      console.error('Não foi possível salvar as correções neste dispositivo:', error);
+      showToast('Não foi possível salvar. O armazenamento do navegador pode estar cheio.');
+      return false;
+    }
   }
 
   function setStorageStatus(message, state = 'local') {
@@ -154,10 +165,12 @@
   }
 
   function enqueueCloudOperation(operation) {
-    if (!currentUser) return;
+    if (!currentUser) return null;
+    const queuedOperation = { operationId: makeId(), ...operation, queuedAt: new Date().toISOString() };
     const operations = readPendingOperations(currentUser.id);
-    operations.push({ operationId: makeId(), ...operation, queuedAt: new Date().toISOString() });
+    operations.push(queuedOperation);
     writePendingOperations(currentUser.id, operations);
+    return queuedOperation.operationId;
   }
 
   function toCloudRow(item, userId) {
@@ -278,16 +291,21 @@
     return cloudSyncTask;
   }
 
-  async function syncCloudOperation(operation) {
-    if (!currentUser || !supabaseClient) return true;
+  async function enqueueAndSyncCloudOperation(operation) {
+    if (!currentUser || !supabaseClient) return {queued: false, synced: true, operationId: null};
     try {
-      enqueueCloudOperation(operation);
+      const operationId = enqueueCloudOperation(operation);
+      return {queued: true, synced: await flushCloudQueue(), operationId};
     } catch (error) {
       console.error('Não foi possível enfileirar a sincronização:', error);
       setStorageStatus('Salvo neste dispositivo; sincronização pendente', 'warning');
-      return false;
+      return {queued: false, synced: false, operationId: null};
     }
-    return flushCloudQueue();
+  }
+
+  async function syncCloudOperation(operation) {
+    const result = await enqueueAndSyncCloudOperation(operation);
+    return result.synced;
   }
 
   async function fetchCloudSubmissions(userId) {
@@ -316,47 +334,39 @@
 
   async function loadUserHistory(user, flowVersion) {
     setStorageStatus('Carregando correções da conta...', 'local');
-    const anonymousSubmissions = loadSubmissions(STORAGE_KEY);
-    let cachedSubmissions = loadSubmissions(getUserCacheKey(user.id));
-
-    // Ao entrar, as correções anônimas deste navegador passam a pertencer à conta atual.
-    // Elas são movidas para um cache isolado por usuário e entram na fila antes de limpar a chave anônima.
-    if (anonymousSubmissions.length) {
-      try {
-        enqueueCloudOperation({ type: 'upsertMany', items: mergeSubmissions([], anonymousSubmissions) });
-        cachedSubmissions = mergeSubmissions(cachedSubmissions, anonymousSubmissions);
-        localStorage.setItem(getUserCacheKey(user.id), JSON.stringify(cachedSubmissions));
-        localStorage.removeItem(STORAGE_KEY);
-      } catch (error) {
-        console.error('Não foi possível preparar a migração do histórico local:', error);
-      }
-    }
+    const localSubmissions = loadSubmissions(STORAGE_KEY);
+    const cachedSubmissions = loadSubmissions(getUserCacheKey(user.id));
+    const cachedWithPending = applyPendingOperations(cachedSubmissions, readPendingOperations(user.id));
+    cloudSubmissionIds = new Set(cachedWithPending.map(item => item.id));
+    submissions = mergeSubmissions(localSubmissions, cachedWithPending);
+    renderStats();
+    renderHistory();
 
     try {
       await flushCloudQueue();
       const cloudSubmissions = await fetchCloudSubmissions(user.id);
       if (flowVersion !== authFlowVersion || currentUser?.id !== user.id) return;
 
-      // Se alguma operação não pôde chegar ao Supabase, aplica a fila em memória para
-      // que exclusões e alterações pendentes também sejam refletidas na interface.
       const pendingOperations = readPendingOperations(user.id);
-      submissions = applyPendingOperations(cloudSubmissions, pendingOperations);
-      if (loadSubmissions(STORAGE_KEY).length) {
-        submissions = mergeSubmissions(submissions, loadSubmissions(STORAGE_KEY));
-      }
+      const effectiveCloudSubmissions = applyPendingOperations(cloudSubmissions, pendingOperations);
+      cloudSubmissionIds = new Set(effectiveCloudSubmissions.map(item => item.id));
+      submissions = mergeSubmissions(loadSubmissions(STORAGE_KEY), effectiveCloudSubmissions);
       saveSubmissions();
       renderStats();
       renderHistory();
 
       if (!pendingOperations.length) setStorageStatus('Sincronizado com sua conta Google', 'synced');
       else setStorageStatus('Sincronização pendente; cópia mantida neste dispositivo', 'warning');
-      if (anonymousSubmissions.length) showToast('Histórico local combinado com sua conta Google.');
+      if (localSubmissions.length) showToast('Correções locais mantidas neste dispositivo; histórico da conta carregado.');
       else if (pendingOperations.length) showToast('Conta conectada. Há alterações aguardando sincronização.');
       else showToast('Conta Google conectada. Histórico sincronizado.');
     } catch (error) {
       console.error('Não foi possível carregar o histórico da nuvem:', error);
       if (flowVersion !== authFlowVersion || currentUser?.id !== user.id) return;
-      submissions = mergeSubmissions(cachedSubmissions, loadSubmissions(STORAGE_KEY));
+      const pendingOperations = readPendingOperations(user.id);
+      const effectiveCachedSubmissions = applyPendingOperations(cachedSubmissions, pendingOperations);
+      cloudSubmissionIds = new Set(effectiveCachedSubmissions.map(item => item.id));
+      submissions = mergeSubmissions(loadSubmissions(STORAGE_KEY), effectiveCachedSubmissions);
       saveSubmissions();
       renderStats();
       renderHistory();
@@ -383,6 +393,7 @@
     if (user) {
       await loadUserHistory(user, flowVersion);
     } else {
+      cloudSubmissionIds = new Set();
       submissions = loadSubmissions(STORAGE_KEY);
       renderStats();
       renderHistory();
@@ -673,12 +684,31 @@
     const now = new Date().toISOString();
     const old = submissions.find(item => item.id === editingId);
     const item = {id:editingId || makeId(), title:els.examTitle.value.trim() || `Prova de ${currentDraft.count} questões`, start:currentDraft.start, key, answers, subjects, createdAt:old?.createdAt || now, updatedAt:now};
+    const wasCloudSubmission = Boolean(old && cloudSubmissionIds.has(old.id));
+    const syncToCloud = Boolean(currentUser && supabaseClient && (!old || wasCloudSubmission));
+    if (syncToCloud) cloudSubmissionIds.add(item.id);
     if (old) submissions = submissions.map(entry => entry.id === editingId ? item : entry); else submissions.unshift(item);
-    if (!saveSubmissions()) return;
-    const synced = await syncCloudOperation({ type: 'upsertMany', items: [item] });
+    if (!saveSubmissions()) {
+      if (!wasCloudSubmission) cloudSubmissionIds.delete(item.id);
+      return;
+    }
+    let synced = true;
+    let isCloudSubmission = syncToCloud;
+    if (syncToCloud) {
+      const syncResult = await enqueueAndSyncCloudOperation({ type: 'upsertMany', items: [item] });
+      synced = syncResult.synced;
+      if (!wasCloudSubmission && !syncResult.queued) {
+        cloudSubmissionIds.delete(item.id);
+        saveSubmissions();
+        isCloudSubmission = false;
+      }
+    }
     activeResultId = item.id; renderStats(); renderHistory(); renderResult(item);
     const actionText = old ? 'Correção atualizada' : 'Correção salva';
-    showToast(currentUser && !synced ? `${actionText} neste dispositivo. A sincronização ficará pendente.` : `${actionText}${currentUser ? ' e sincronizada.' : ' no histórico!'}`);
+    const toast = isCloudSubmission
+      ? (synced ? `${actionText} e sincronizada.` : `${actionText} neste dispositivo. A sincronização ficará pendente.`)
+      : (currentUser ? `${actionText} localmente.` : `${actionText} no histórico!`);
+    showToast(toast);
     startNewDraft();
     setDetailMode('result');
     showScreen('detail');
@@ -852,6 +882,7 @@
   function renderHistory() {
     const sorted = [...submissions].sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
     if (!sorted.length) els.historySearch.value = '';
+    const pendingOperations = currentUser ? readPendingOperations(currentUser.id) : [];
     const searchTerm = normalizeSearchText(els.historySearch.value);
     const filtered = sorted.filter(item => {
       if (!searchTerm) return true;
@@ -861,6 +892,20 @@
     });
     els.historyBody.innerHTML = filtered.map(item => {
       const result = calculate(item), pct = result.percent;
+      const isCloud = cloudSubmissionIds.has(item.id);
+      const hasPendingOperation = pendingOperations.some(operation =>
+        (operation.type === 'deleteOne' && operation.id === item.id) ||
+        (operation.type === 'upsertMany' && (operation.items || []).some(pendingItem => pendingItem.id === item.id))
+      );
+      const storageClass = `${isCloud ? 'cloud' : 'local'}${hasPendingOperation ? ' pending' : ''}`;
+      const storageIcon = hasPendingOperation ? 'sync' : (isCloud ? 'cloud' : 'hard_drive');
+      const storageLabel = hasPendingOperation
+        ? `${isCloud ? 'Na nuvem' : 'Local'}; sincronização pendente.`
+        : (isCloud
+          ? 'Na nuvem. Clique para manter esta correção apenas localmente.'
+          : currentUser && supabaseClient
+            ? 'Local. Clique para enviar esta correção para a nuvem.'
+            : 'Local. Entre na sua conta para enviar esta correção para a nuvem.');
       const subjects = [...new Set((item.subjects || []).filter(subject => subject && subject !== 'Sem matéria'))];
       const subjectTags = subjects.length
         ? `${subjects.slice(0, 5).map(subject => subjectTag(subject, 'history-subject-tag')).join('')}${subjects.length > 5 ? `<span class="subject-overflow">+${subjects.length - 5}</span>` : ''}`
@@ -869,6 +914,7 @@
         <div class="history-card-top"><div class="exam-icon material-symbols-outlined" aria-hidden="true">description</div><div class="history-card-title"><h3 title="${escapeHTML(item.title || '')}">${escapeHTML(item.title || `Prova de ${result.total} questões`)}</h3><p>${escapeHTML(formatDate(item.updatedAt || item.createdAt))} · ${result.total} questões · começa na ${Number(item.start) || 1}</p></div><span class="score-pill">${result.correct}/${result.total}</span></div>
         <div class="history-score-row"><strong>${pct.toFixed(1).replace('.', ',')}%</strong><div class="history-progress-track"><div class="history-progress-fill" style="width:${pct}%"></div></div><span>${result.correct} certas · ${result.wrong} erradas · ${result.blank} em branco</span></div>
         <div class="history-subject-tags">${subjectTags}</div>
+        <div class="history-storage-row"><button class="row-action storage-action ${storageClass}" type="button" data-action="storage" aria-label="${storageLabel}" title="${storageLabel}" ${!currentUser || !supabaseClient || hasPendingOperation ? 'disabled' : ''}><span class="material-symbols-outlined" aria-hidden="true">${storageIcon}</span></button></div>
         <div class="history-card-actions"><button class="row-action view" type="button" data-action="view">Ver gabarito completo <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button><button class="row-action" type="button" data-action="edit">Editar</button><button class="row-action delete" type="button" data-action="delete">Excluir</button></div>
       </article>`;
     }).join('');
@@ -880,6 +926,52 @@
       ? `${filtered.length} ${filtered.length === 1 ? 'correção encontrada' : 'correções encontradas'} de ${submissions.length}`
       : `${submissions.length} ${submissions.length === 1 ? 'correção salva' : 'correções salvas'}`;
   }
+  async function changeSubmissionStorage(item, shouldBeCloud) {
+    if (!currentUser || !supabaseClient) {
+      showToast('Entre na sua conta Google para transferir correções.');
+      return;
+    }
+    const userId = currentUser.id;
+    const wasCloud = cloudSubmissionIds.has(item.id);
+    if (wasCloud === shouldBeCloud) return;
+
+    if (shouldBeCloud) cloudSubmissionIds.add(item.id);
+    else cloudSubmissionIds.delete(item.id);
+    if (!saveSubmissions()) {
+      if (wasCloud) cloudSubmissionIds.add(item.id);
+      else cloudSubmissionIds.delete(item.id);
+      return;
+    }
+
+    const operation = shouldBeCloud
+      ? { type: 'upsertMany', items: [item] }
+      : { type: 'deleteOne', id: item.id };
+    let operationId;
+    try {
+      operationId = enqueueCloudOperation(operation);
+    } catch (error) {
+      console.error('Não foi possível registrar a transferência da correção:', error);
+      if (wasCloud) cloudSubmissionIds.add(item.id);
+      else cloudSubmissionIds.delete(item.id);
+      saveSubmissions();
+      renderHistory();
+      showToast('Não foi possível registrar a transferência. A correção permaneceu no armazenamento anterior.');
+      return;
+    }
+    renderHistory();
+    await flushCloudQueue();
+    if (currentUser?.id !== userId) return;
+
+    const stillPending = readPendingOperations(userId).some(operation => operation.operationId === operationId);
+    renderHistory();
+    if (stillPending) {
+      showToast(shouldBeCloud
+        ? 'Correção mantida neste dispositivo; envio para a nuvem pendente.'
+        : 'Cópia local criada; remoção da nuvem pendente.');
+    } else {
+      showToast(shouldBeCloud ? 'Correção enviada para a nuvem.' : 'Correção removida da nuvem e mantida neste dispositivo.');
+    }
+  }
   els.historySearch.addEventListener('input', renderHistory);
   els.historyBody.addEventListener('click', event => {
     const card = event.target.closest('.history-card[data-id]');
@@ -888,6 +980,10 @@
     const item = submissions.find(entry => entry.id === card.dataset.id);
     if (!item) return;
     const action = button ? button.dataset.action : 'view';
+    if (action === 'storage') {
+      changeSubmissionStorage(item, !cloudSubmissionIds.has(item.id));
+      return;
+    }
     if (action === 'view') {
       renderResult(item);
       setDetailMode('result');
@@ -899,12 +995,14 @@
       message: `“${item.title}” será removido do histórico. Essa ação não pode ser desfeita.`,
       confirmText: 'Excluir envio',
       onConfirm: async () => {
+        const wasCloud = cloudSubmissionIds.has(item.id);
         submissions = submissions.filter(entry => entry.id !== item.id);
-        saveSubmissions();
-        const synced = await syncCloudOperation({ type: 'deleteOne', id: item.id });
+        if (wasCloud) cloudSubmissionIds.delete(item.id);
+        if (!saveSubmissions()) return;
+        const synced = wasCloud ? await syncCloudOperation({ type: 'deleteOne', id: item.id }) : true;
         if (activeResultId === item.id) renderResult(null);
         renderStats(); renderHistory();
-        showToast(currentUser && !synced ? 'Removido deste dispositivo; exclusão pendente de sincronização.' : 'Envio excluído do histórico.');
+        showToast(wasCloud && !synced ? 'Removido deste dispositivo; exclusão pendente de sincronização.' : 'Envio excluído do histórico.');
       }
     });
   });
@@ -925,7 +1023,17 @@
   els.backToHistoryButton.addEventListener('click',()=>showScreen(detailReturnScreen));
   $('#clear-history-button').addEventListener('click',()=>{
     if(!submissions.length){showToast('Seu histórico já está vazio.');return;}
-    askConfirm({title:'Apagar todo o histórico?',message:currentUser ? 'Todas as correções desta conta Google serão removidas da nuvem e deste dispositivo. Considere exportar uma cópia antes.' : 'Todos os resultados salvos neste navegador serão removidos. Considere exportar uma cópia antes.',confirmText:'Apagar tudo',onConfirm:async()=>{submissions=[];saveSubmissions();const synced=await syncCloudOperation({type:'deleteAll'});renderStats();renderHistory();renderResult(null);showToast(currentUser && !synced ? 'Histórico removido deste dispositivo; exclusão pendente de sincronização.' : 'Histórico apagado.');}});
+    askConfirm({title:'Apagar todo o histórico?',message:currentUser ? 'Todas as correções locais e da nuvem serão removidas. Considere exportar uma cópia antes.' : 'Todos os resultados salvos neste navegador serão removidos. Considere exportar uma cópia antes.',confirmText:'Apagar tudo',onConfirm:async()=>{
+      const hadCloudSubmissions = cloudSubmissionIds.size > 0;
+      submissions=[];
+      cloudSubmissionIds = new Set();
+      if (!saveSubmissions()) return;
+      const synced = currentUser && hadCloudSubmissions
+        ? await syncCloudOperation({type:'deleteAll'})
+        : true;
+      renderStats();renderHistory();renderResult(null);
+      showToast(currentUser && hadCloudSubmissions && !synced ? 'Histórico removido deste dispositivo; exclusão pendente de sincronização.' : 'Histórico apagado.');
+    }});
   });
   $('#export-button').addEventListener('click',()=>{
     const blob=new Blob([JSON.stringify({app:'Gabarita',version:2,exportedAt:new Date().toISOString(),submissions},null,2)],{type:'application/json;charset=utf-8'});
@@ -939,7 +1047,28 @@
       if(!Array.isArray(incoming))throw new Error('Formato inválido');
       const clean=incoming.filter(validSubmission).map(item=>({id:typeof item.id==='string'?item.id:makeId(),title:String(item.title||`Prova de ${item.key.length} questões`).slice(0,80),start:Math.max(1,Number(item.start)||1),key:item.key.map(v=>LETTERS.includes(v)?v:''),answers:item.answers.map(v=>LETTERS.includes(v)?v:''),subjects:item.key.map((_,i)=>SUBJECTS.includes(item.subjects?.[i])?item.subjects[i]:'Sem matéria'),createdAt:item.createdAt||new Date().toISOString(),updatedAt:item.updatedAt||item.createdAt||new Date().toISOString()})).filter(item=>item.key.every(Boolean));
       if(!clean.length)throw new Error('Nenhum envio válido');
-      askConfirm({title:'Importar histórico?',message:`${clean.length} envio(s) válido(s) encontrado(s). Registros com o mesmo ID serão atualizados e os demais adicionados.`,confirmText:'Importar',danger:false,onConfirm:async()=>{const map=new Map(submissions.map(item=>[item.id,item]));clean.forEach(item=>map.set(item.id,item));submissions=Array.from(map.values()).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt));if(saveSubmissions()){const uniqueImported = [...new Map(clean.map(item => [item.id, item])).values()];const synced=await syncCloudOperation({type:'upsertMany',items:uniqueImported});renderStats();renderHistory();showToast(currentUser && !synced ? `${clean.length} envio(s) importado(s) localmente; sincronização pendente.` : `${clean.length} envio(s) importado(s).`);}}});
+      askConfirm({title:'Importar histórico?',message:`${clean.length} envio(s) válido(s) encontrado(s). Registros com o mesmo ID serão atualizados e os demais adicionados. Novos registros importados ficarão locais.`,confirmText:'Importar',danger:false,onConfirm:async()=>{
+        const map=new Map(submissions.map(item=>[item.id,item]));
+        const cloudUpdates = [];
+        clean.forEach(item=>{
+          map.set(item.id,item);
+          if (cloudSubmissionIds.has(item.id)) cloudUpdates.push(item);
+        });
+        submissions=Array.from(map.values()).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt));
+        if(saveSubmissions()){
+          const uniqueCloudUpdates = [...new Map(cloudUpdates.map(item => [item.id, item])).values()];
+          const synced = uniqueCloudUpdates.length
+            ? await syncCloudOperation({type:'upsertMany',items:uniqueCloudUpdates})
+            : true;
+          renderStats();renderHistory();
+          const message = uniqueCloudUpdates.length && !synced
+            ? `${clean.length} envio(s) importado(s); atualização na nuvem pendente.`
+            : currentUser
+              ? `${clean.length} envio(s) importado(s); novos registros mantidos localmente.`
+              : `${clean.length} envio(s) importado(s).`;
+          showToast(message);
+        }
+      }});
     }catch(error){showToast('Não foi possível importar. Selecione um JSON exportado pelo Gabarita.');}finally{els.importFile.value='';}
   });
   els.dialogCancel.addEventListener('click',()=>{pendingConfirm=null;els.dialog.close();});
