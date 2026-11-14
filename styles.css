@@ -274,7 +274,7 @@ p { margin: 0; }
   transition: border-color .15s, box-shadow .15s;
 }
 .field-block input::placeholder, textarea::placeholder { color: #aab2c0; }
-.field-block input:focus, textarea:focus, .answer-select:focus, .subject-select:focus, .review-subject-filter:focus, .select-control select:focus, .history-search:focus-within {
+.field-block input:focus, textarea:focus, .answer-select:focus, .review-subject-filter:focus, .select-control select:focus, .history-search:focus-within {
   border-color: var(--green); box-shadow: 0 0 0 3px rgba(34,168,121,.18); outline: none;
 }
 .setup-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 4px; }
@@ -348,6 +348,15 @@ p { margin: 0; }
   width: 100%; min-width: 0; height: 36px; padding: 0 8px; border: 1px solid var(--line);
   border-radius: 7px; background: var(--subject-light, #fff); color: var(--subject-ink, var(--ink));
   border-color: var(--subject-border, var(--line)); font-size: 13px; cursor: pointer;
+}
+.subject-select:focus {
+  border-color: var(--subject-border, var(--green));
+  outline: 2px solid var(--subject-border, var(--green));
+  outline-offset: 1px;
+}
+.subject-cell-no-subject .subject-select:focus {
+  border-color: var(--green);
+  outline-color: var(--green);
 }
 
 .form-actions {

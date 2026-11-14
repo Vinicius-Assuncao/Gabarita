@@ -3,31 +3,30 @@
 
   const STORAGE_KEY = 'gabarita_submissions_v1';
   const LETTERS = ['A', 'B', 'C', 'D', 'E'];
-  const SUBJECTS = ['Sem matéria', 'Matemática', 'Física', 'Química', 'Biologia', 'História', 'Geografia', 'Filosofia', 'Sociologia', 'Português', 'Literatura', 'Inglês', 'Redação', 'Artes', 'Educação Física', 'Outra'];
-  const KNOWLEDGE_AREAS = [
-    {name: 'Linguagens', subjects: ['Português', 'Literatura', 'Inglês', 'Redação', 'Artes', 'Educação Física'], colors: {bg:'#e4f3ff', border:'#71b1fb', ink:'#126b9f', light:'#f1fcff'}},
-    {name: 'Ciências da Natureza', subjects: ['Física', 'Química', 'Biologia'], colors: {bg:'#dcfce7', border:'#4ade80', ink:'#166534', light:'#f0fdf4'}},
-    {name: 'Ciências Humanas', subjects: ['História', 'Geografia', 'Filosofia', 'Sociologia'], colors: {bg:'#ffd6d5', border:'#fb523c', ink:'#9a2612', light:'#ffefed'}},
-    {name: 'Matemática', subjects: ['Matemática'], colors: {bg:'#f9e6a8', border:'#d8a620', ink:'#73520b', light:'#fff8e3'}}
+
+  const SUBJECTS = [
+    {name:'Sem matéria', icon:'circle', colors:{bg:'#f1f5f9', border:'#cbd5e1', ink:'#475569', light:'#f8fafc'}},
+    {name:'Matemática', icon:'function', colors:{bg:'#f9e6a8', border:'#d8a620', ink:'#73520b', light:'#fff8e3'}},
+    {name:'Física', icon:'lightbulb_2', colors:{bg:'#b9efd5', border:'#38a878', ink:'#176b49', light:'#effcf5'}},
+    {name:'Química', icon:'experiment', colors:{bg:'#eefecf', border:'#a7ee22', ink:'#53900e', light:'#ecfeff'}},
+    {name:'Biologia', icon:'coronavirus', colors:{bg:'#dcfce7', border:'#4ade80', ink:'#166534', light:'#f0fdf4'}},
+    {name:'História', icon:'history_edu', colors:{bg:'#ffd6d5', border:'#fb523c', ink:'#9a2612', light:'#ffefed'}},
+    {name:'Geografia', icon:'public', colors:{bg:'#fbe5cc', border:'#d4862d', ink:'#5e3f11', light:'#fdf7f0'}},
+    {name:'Filosofia', icon:'psychology', colors:{bg:'#fae8ff', border:'#e879f9', ink:'#86198f', light:'#fdf4ff'}},
+    {name:'Sociologia', icon:'location_city', colors:{bg:'#fce7f3', border:'#f472b6', ink:'#9d174d', light:'#fdf2f8'}},
+    {name:'Português', icon:'dictionary', colors:{bg:'#e4f3ff', border:'#71b1fb', ink:'#126b9f', light:'#f1fcff'}},
+    {name:'Literatura', icon:'book_2', colors:{bg:'#e0e7ff', border:'#8193f8', ink:'#3045a3', light:'#eef1ff'}},
+    {name:'Inglês', icon:'translate', colors:{bg:'#e0fdfe', border:'#38f8f8', ink:'#078585', light:'#f0fffe'}},
+    {name:'Artes', icon:'palette', colors:{bg:'#fce7f3', border:'#f9a8d4', ink:'#9d174d', light:'#fdf2f8'}},
+    {name:'Educação Física', icon:'fitness_center', colors:{bg:'#d1fae5', border:'#34d399', ink:'#065f46', light:'#ecfdf5'}},
+    {name:'Outra', icon:'alt_route', colors:{bg:'#e2e8f0', border:'#94a3b8', ink:'#334155', light:'#f8fafc'}}
   ];
-  const SUBJECT_COLORS = {
-    'Sem matéria': {bg:'#f1f5f9', border:'#cbd5e1', ink:'#475569', light:'#f8fafc'},
-    'Matemática': {bg:'#f9e6a8', border:'#d8a620', ink:'#73520b', light:'#fff8e3'},
-    'Física': {bg:'#b9efd5', border:'#38a878', ink:'#176b49', light:'#effcf5'},
-    'Química': {bg:'#eefecf', border:'#a7ee22', ink:'#53900e', light:'#ecfeff'},
-    'Biologia': {bg:'#dcfce7', border:'#4ade80', ink:'#166534', light:'#f0fdf4'},
-    'História': {bg:'#ffd6d5', border:'#fb523c', ink:'#9a2612', light:'#ffefed'},
-    'Geografia': {bg:'#fbe5cc', border:'#d4862d', ink:'#5e3f11', light:'#fdf7f0'},
-    'Filosofia': {bg:'#fae8ff', border:'#e879f9', ink:'#86198f', light:'#fdf4ff'},
-    'Sociologia': {bg:'#fce7f3', border:'#f472b6', ink:'#9d174d', light:'#fdf2f8'},
-    'Português': {bg:'#e4f3ff', border:'#71b1fb', ink:'#126b9f', light:'#f1fcff'},
-    'Literatura': {bg:'#e0e7ff', border:'#8193f8', ink:'#3045a3', light:'#eef1ff'},
-    'Inglês': {bg:'#e0fdfe', border:'#38f8f8', ink:'#078585', light:'#f0fffe'},
-    'Redação': {bg:'#e2f6fe', border:'#71cdf8', ink:'#1b6b99', light:'#f2f9fe'},
-    'Artes': {bg:'#fce7f3', border:'#f9a8d4', ink:'#9d174d', light:'#fdf2f8'},
-    'Educação Física': {bg:'#d1fae5', border:'#34d399', ink:'#065f46', light:'#ecfdf5'},
-    'Outra': {bg:'#e2e8f0', border:'#94a3b8', ink:'#334155', light:'#f8fafc'}
-  };
+  const KNOWLEDGE_AREAS = [
+    {name: 'Linguagens', subjects: ['Português', 'Literatura', 'Inglês', 'Artes', 'Educação Física'], icon: 'text_snippet', colors: {bg:'#e4f3ff', border:'#71b1fb', ink:'#126b9f', light:'#f1fcff'}},
+    {name: 'Ciências da Natureza', subjects: ['Física', 'Química', 'Biologia'], icon: 'labs', colors: {bg:'#dcfce7', border:'#4ade80', ink:'#166534', light:'#f0fdf4'}},
+    {name: 'Ciências Humanas', subjects: ['História', 'Geografia', 'Filosofia', 'Sociologia'], icon: 'manage_accounts', colors: {bg:'#ffd6d5', border:'#fb523c', ink:'#9a2612', light:'#ffefed'}},
+    {name: 'Matemática', subjects: ['Matemática'], icon: 'function', colors: {bg:'#f9e6a8', border:'#d8a620', ink:'#73520b', light:'#fff8e3'}}
+  ];
   const $ = (selector) => document.querySelector(selector);
   const els = {
     setupForm: $('#setup-form'), answersForm: $('#answers-form'), examTitle: $('#exam-title'),
@@ -86,13 +85,19 @@
   function validSubmission(item) {
     return item && typeof item.id === 'string' && Array.isArray(item.key) && Array.isArray(item.answers) && item.key.length > 0 && item.key.length === item.answers.length;
   }
+  function getSubjectConfig(name) {
+    return SUBJECTS.find(subject => subject.name === name) || SUBJECTS[0];
+  }
+  function normalizeSubject(name) {
+    return getSubjectConfig(name).name;
+  }
   function loadSubmissions(storageKey = STORAGE_KEY) {
     try {
       const data = JSON.parse(localStorage.getItem(storageKey) || '[]');
       if (!Array.isArray(data)) return [];
       return data.filter(validSubmission).map(item => ({
         ...item,
-        subjects: item.key.map((_, index) => SUBJECTS.includes(item.subjects?.[index]) ? item.subjects[index] : 'Sem matéria')
+        subjects: item.key.map((_, index) => normalizeSubject(item.subjects?.[index]))
       }));
     } catch (error) { console.warn('Histórico indisponível:', error); return []; }
   }
@@ -181,7 +186,7 @@
       start_question: Number(item.start) || 1,
       answer_key: item.key,
       answers: item.answers,
-      subjects: item.key.map((_, index) => SUBJECTS.includes(item.subjects?.[index]) ? item.subjects[index] : 'Sem matéria'),
+      subjects: item.key.map((_, index) => normalizeSubject(item.subjects?.[index])),
       created_at: item.createdAt || new Date().toISOString(),
       updated_at: item.updatedAt || item.createdAt || new Date().toISOString()
     };
@@ -199,7 +204,7 @@
       updatedAt: row.updated_at || row.created_at || new Date().toISOString()
     };
     if (!validSubmission(item)) return null;
-    item.subjects = item.key.map((_, index) => SUBJECTS.includes(item.subjects[index]) ? item.subjects[index] : 'Sem matéria');
+    item.subjects = item.key.map((_, index) => normalizeSubject(item.subjects[index]));
     return item;
   }
 
@@ -211,7 +216,7 @@
       const previousDate = previous ? (new Date(previous.updatedAt || previous.createdAt || 0).getTime() || 0) : -1;
       if (!previous || itemDate >= previousDate) merged.set(item.id, {
         ...item,
-        subjects: item.key.map((_, index) => SUBJECTS.includes(item.subjects?.[index]) ? item.subjects[index] : 'Sem matéria')
+        subjects: item.key.map((_, index) => normalizeSubject(item.subjects?.[index]))
       });
     });
     return [...merged.values()].sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
@@ -514,20 +519,19 @@
     }
     container.replaceChildren(fragment);
   }
-  function subjectColors(subject) { return SUBJECT_COLORS[SUBJECTS.includes(subject) ? subject : 'Sem matéria']; }
   function subjectStyle(subject) {
-    const color = subjectColors(subject);
+    const color = getSubjectConfig(subject).colors;
     return `--subject-bg:${color.bg};--subject-border:${color.border};--subject-ink:${color.ink};--subject-light:${color.light}`;
   }
   function subjectTag(subject, extraClass = '') {
-    const safeSubject = SUBJECTS.includes(subject) ? subject : 'Sem matéria';
-    const icon = safeSubject === 'Sem matéria' ? 'radio_button_unchecked' : 'label';
-    return `<span class="review-subject ${extraClass}" style="${subjectStyle(safeSubject)}"><span class="material-symbols-outlined" aria-hidden="true">${icon}</span>${escapeHTML(safeSubject)}</span>`;
+    const config = getSubjectConfig(subject);
+    return `<span class="review-subject ${extraClass}" style="${subjectStyle(config.name)}"><span class="material-symbols-outlined" aria-hidden="true">${config.icon}</span>${escapeHTML(config.name)}</span>`;
   }
   function applySubjectColor(select) {
     const wrapper = select.closest('.subject-cell');
     if (!wrapper) return;
     wrapper.style.cssText = subjectStyle(select.value);
+    wrapper.classList.toggle('subject-cell-no-subject', select.value === 'Sem matéria');
   }
   function buildSubjectGrid(count, start, values = []) {
     const fragment = document.createDocumentFragment();
@@ -536,8 +540,8 @@
       const label = document.createElement('label'); label.htmlFor = `subject-${i}`; label.textContent = `Questão ${start + i}`;
       const select = document.createElement('select'); select.id = `subject-${i}`; select.className = 'subject-select'; select.dataset.index = String(i);
       select.setAttribute('aria-label', `Matéria da questão ${start + i}`);
-      SUBJECTS.forEach(subject => { const option = document.createElement('option'); option.value = subject; option.textContent = subject; select.appendChild(option); });
-      select.value = SUBJECTS.includes(values[i]) ? values[i] : 'Sem matéria';
+      SUBJECTS.forEach(subject => { const option = document.createElement('option'); option.value = subject.name; option.textContent = subject.name; select.appendChild(option); });
+      select.value = normalizeSubject(values[i]);
       select.addEventListener('change', () => applySubjectColor(select));
       wrapper.append(label, select); fragment.appendChild(wrapper);
       applySubjectColor(select);
@@ -746,7 +750,7 @@
     els.resultBlank.textContent = String(result.blank);
     const subjectResults = new Map();
     result.details.forEach(detail => {
-      const subject = SUBJECTS.includes(detail.subject) ? detail.subject : 'Sem matéria';
+      const subject = normalizeSubject(detail.subject);
       const counts = subjectResults.get(subject) || {correct: 0, total: 0};
       counts.total++;
       if (detail.status === 'correct') counts.correct++;
@@ -767,8 +771,9 @@
     $('[data-count="wrong"]').textContent = String(countByStatus.wrong);
     $('[data-count="blank"]').textContent = String(countByStatus.blank);
 
-    const examSubjects = [...new Set(result.details.map(detail => detail.subject))]
-      .sort((a, b) => SUBJECTS.indexOf(a) - SUBJECTS.indexOf(b));
+    const subjectOrder = name => SUBJECTS.findIndex(subject => subject.name === name);
+    const examSubjects = [...new Set(result.details.map(detail => normalizeSubject(detail.subject)))]
+      .sort((a, b) => subjectOrder(a) - subjectOrder(b));
     els.reviewSubjectFilter.innerHTML = '<option value="all">Todas as matérias</option>' +
       examSubjects.map(subject => `<option value="${escapeHTML(subject)}">${escapeHTML(subject)}</option>`).join('');
     activeReviewSubject = 'all';
@@ -799,9 +804,10 @@
       ? KNOWLEDGE_AREAS.map(area => {
         const parts = area.subjects
           .map(name => activeSubjectResults.find(result => result.subject === name))
-          .filter(Boolean);
+          .filter(Boolean)
+          .sort((a, b) => b.correct - a.correct);
         const counts = parts.reduce((total, result) => ({correct: total.correct + result.correct, total: total.total + result.total}), {correct: 0, total: 0});
-        return {subject: area.name, ...counts, colors: area.colors, parts};
+        return {subject: area.name, ...counts, colors: area.colors, parts, icon: area.icon};
       }).filter(result => result.total > 0)
       : activeSubjectResults;
     const sorted = [...results].sort((a, b) => {
@@ -812,14 +818,14 @@
     els.subjectPerformanceDescription.textContent = areaMode
       ? 'Soma automática das questões de todas as matérias de cada área. “Sem matéria” e “Outra” não entram nesta visualização.'
       : 'Acertos sobre o total de questões da matéria, incluindo as em branco.';
-    els.subjectPerformanceList.innerHTML = sorted.map(({subject, correct, total, colors, parts}) => {
+    els.subjectPerformanceList.innerHTML = sorted.map(({subject, correct, total, colors, parts, icon}) => {
       const percent = total ? correct / total * 100 : 0;
       const perfect = correct === total;
       const style = areaMode
         ? `--subject-bg:${colors.bg};--subject-border:${colors.border};--subject-ink:${colors.ink};--subject-light:${colors.light}`
         : subjectStyle(subject);
       const subjectLabel = areaMode
-        ? `<span class="review-subject" style="${style}"><span class="material-symbols-outlined" aria-hidden="true">category</span>${escapeHTML(subject)}</span>`
+        ? `<span class="review-subject" style="${style}"><span class="material-symbols-outlined" aria-hidden="true">${icon}</span>${escapeHTML(subject)}</span>`
         : subjectTag(subject);
       return `<article class="subject-performance-card${perfect ? ' perfect-score' : ''}" style="${style}">
         <div class="subject-performance-top"><div class="subject-performance-subject">${subjectLabel}${perfect ? '<svg class="subject-perfect-trophy" role="img" aria-label="Aproveitamento perfeito" viewBox="0 0 24 24"><path d="M7 3h10v3h4v3a5 5 0 0 1-5 5h-.4a5 5 0 0 1-2.6 2.7V20h4v2H7v-2h4v-3.3A5 5 0 0 1 8.4 14H8a5 5 0 0 1-5-5V6h4V3Zm0 5H5v1a3 3 0 0 0 2.7 3A8 8 0 0 1 7 9V8Zm10 0v1a8 8 0 0 1-.7 3A3 3 0 0 0 19 9V8h-2Z"/></svg>' : ''}</div><strong>${percent.toFixed(1).replace('.', ',')}%</strong></div>
@@ -1037,7 +1043,7 @@
     try{
       const parsed=JSON.parse(await file.text()), incoming=Array.isArray(parsed)?parsed:parsed.submissions;
       if(!Array.isArray(incoming))throw new Error('Formato inválido');
-      const clean=incoming.filter(validSubmission).map(item=>({id:typeof item.id==='string'?item.id:makeId(),title:String(item.title||`Prova de ${item.key.length} questões`).slice(0,80),start:Math.max(1,Number(item.start)||1),key:item.key.map(v=>LETTERS.includes(v)?v:''),answers:item.answers.map(v=>LETTERS.includes(v)?v:''),subjects:item.key.map((_,i)=>SUBJECTS.includes(item.subjects?.[i])?item.subjects[i]:'Sem matéria'),createdAt:item.createdAt||new Date().toISOString(),updatedAt:item.updatedAt||item.createdAt||new Date().toISOString()})).filter(item=>item.key.every(Boolean));
+      const clean=incoming.filter(validSubmission).map(item=>({id:typeof item.id==='string'?item.id:makeId(),title:String(item.title||`Prova de ${item.key.length} questões`).slice(0,80),start:Math.max(1,Number(item.start)||1),key:item.key.map(v=>LETTERS.includes(v)?v:''),answers:item.answers.map(v=>LETTERS.includes(v)?v:''),subjects:item.key.map((_,i)=>normalizeSubject(item.subjects?.[i])),createdAt:item.createdAt||new Date().toISOString(),updatedAt:item.updatedAt||item.createdAt||new Date().toISOString()})).filter(item=>item.key.every(Boolean));
       if(!clean.length)throw new Error('Nenhum envio válido');
       askConfirm({title:'Importar histórico?',message:`${clean.length} envio(s) válido(s) encontrado(s). Registros com o mesmo ID serão atualizados e os demais adicionados. Novos registros importados ficarão locais.`,confirmText:'Importar',danger:false,onConfirm:async()=>{
         const map=new Map(submissions.map(item=>[item.id,item]));

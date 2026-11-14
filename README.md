@@ -14,7 +14,7 @@ A aplicação oferece armazenamento local e integração com o **Supabase**, per
 - ✏️ **Correção automática** das respostas, comparando cada alternativa com o gabarito
 - 📥 **Importação do gabarito por texto**: cole o gabarito oficial e o sistema preenche as questões. Ele reconhece pares como `01 C 19 B 37 B 55 A`, mesmo quando o material está em colunas
 - 🔤 **Sequência de alternativas**: também aceita apenas a sequência A–E, separada por espaços ou vírgulas, a partir de uma numeração inicial configurável
-- 🎨 **Organização por matéria**: cada questão pode ser classificada com cores próprias (Matemática, Física, História, Redação e outras)
+- 🎨 **Organização por matéria**: cada questão pode ser classificada com cores próprias (Matemática, Física, História, Português e outras)
 - 📊 **Resumo por matéria ou área do conhecimento**: acertos e porcentagem, com ordenação, desempate pelo total de acertos e destaque para 100% de acerto
 - 🔍 **Filtros de revisão**: veja todas as questões, apenas as acertadas, apenas as erradas ou apenas as em branco
 - 🃏 **Cartões de comparação** entre sua resposta e o gabarito oficial
