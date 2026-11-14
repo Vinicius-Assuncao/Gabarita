@@ -37,7 +37,7 @@
     resultStatus: $('#result-status'), resultEmpty: $('#result-empty'), resultContent: $('#result-content'),
     resultExamName: $('#result-exam-name'), reviewNoResults: $('#review-no-results'),
     resultPercent: $('#result-percent'), resultCorrect: $('#result-correct'), resultWrong: $('#result-wrong'),
-    resultBlank: $('#result-blank'), resultMessage: $('#result-message'), subjectPerformanceList: $('#subject-performance-list'),
+    resultBlank: $('#result-blank'), subjectPerformanceList: $('#subject-performance-list'),
     subjectPerformanceTitle: $('#subject-performance-title'), subjectPerformanceDescription: $('#subject-performance-description'),
     subjectGroup: $('#subject-group'), subjectSort: $('#subject-sort'), reviewCount: $('#review-count'),
     reviewList: $('#review-list'), reviewSubjectFilter: $('#review-subject-filter'), scoreRing: $('#score-ring'), historyBody: $('#history-body'),
@@ -521,7 +521,7 @@
   }
   function subjectTag(subject, extraClass = '') {
     const safeSubject = SUBJECTS.includes(subject) ? subject : 'Sem matéria';
-    const icon = safeSubject === 'Sem matéria' ? 'radio_button_unchecked' : 'auto_awesome';
+    const icon = safeSubject === 'Sem matéria' ? 'radio_button_unchecked' : 'label';
     return `<span class="review-subject ${extraClass}" style="${subjectStyle(safeSubject)}"><span class="material-symbols-outlined" aria-hidden="true">${icon}</span>${escapeHTML(safeSubject)}</span>`;
   }
   function applySubjectColor(select) {
@@ -756,13 +756,6 @@
     renderSubjectPerformance();
     const degrees = result.percent * 3.6;
     els.scoreRing.style.background = `conic-gradient(#25b982 0deg, #25b982 ${degrees}deg, #edf0f5 ${degrees}deg 360deg)`;
-    let title = 'Correção concluída!', message = 'Confira questão por questão e use o resultado para orientar seus estudos.';
-    if (result.percent >= 90) { title = 'Excelente resultado!'; message = 'Seu desempenho foi muito alto. Continue com esse ritmo de estudos!'; }
-    else if (result.percent >= 70) { title = 'Bom trabalho!'; message = 'Revise os erros para avançar ainda mais.'; }
-    else { title = 'Cada erro ensina algo.'; message = 'Revise os conteúdos e tente novamente. O importante é acompanhar sua evolução.'; }
-    els.resultMessage.classList.toggle('hidden', result.percent >= 50 && result.percent < 70);
-    els.resultMessage.querySelector('strong').textContent = title;
-    els.resultMessage.querySelector('p').textContent = message;
     els.reviewCount.textContent = `${result.total} questões`;
 
     const countByStatus = result.details.reduce((counts, detail) => {
@@ -826,7 +819,7 @@
         ? `--subject-bg:${colors.bg};--subject-border:${colors.border};--subject-ink:${colors.ink};--subject-light:${colors.light}`
         : subjectStyle(subject);
       const subjectLabel = areaMode
-        ? `<span class="review-subject" style="${style}"><span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span>${escapeHTML(subject)}</span>`
+        ? `<span class="review-subject" style="${style}"><span class="material-symbols-outlined" aria-hidden="true">category</span>${escapeHTML(subject)}</span>`
         : subjectTag(subject);
       return `<article class="subject-performance-card${perfect ? ' perfect-score' : ''}" style="${style}">
         <div class="subject-performance-top"><div class="subject-performance-subject">${subjectLabel}${perfect ? '<svg class="subject-perfect-trophy" role="img" aria-label="Aproveitamento perfeito" viewBox="0 0 24 24"><path d="M7 3h10v3h4v3a5 5 0 0 1-5 5h-.4a5 5 0 0 1-2.6 2.7V20h4v2H7v-2h4v-3.3A5 5 0 0 1 8.4 14H8a5 5 0 0 1-5-5V6h4V3Zm0 5H5v1a3 3 0 0 0 2.7 3A8 8 0 0 1 7 9V8Zm10 0v1a8 8 0 0 1-.7 3A3 3 0 0 0 19 9V8h-2Z"/></svg>' : ''}</div><strong>${percent.toFixed(1).replace('.', ',')}%</strong></div>
@@ -911,11 +904,10 @@
         ? `${subjects.slice(0, 5).map(subject => subjectTag(subject, 'history-subject-tag')).join('')}${subjects.length > 5 ? `<span class="subject-overflow">+${subjects.length - 5}</span>` : ''}`
         : subjectTag('Sem matéria', 'history-subject-tag');
       return `<article class="history-card" data-id="${escapeHTML(item.id)}">
-        <div class="history-card-top"><div class="exam-icon material-symbols-outlined" aria-hidden="true">description</div><div class="history-card-title"><h3 title="${escapeHTML(item.title || '')}">${escapeHTML(item.title || `Prova de ${result.total} questões`)}</h3><p>${escapeHTML(formatDate(item.updatedAt || item.createdAt))} · ${result.total} questões · começa na ${Number(item.start) || 1}</p></div><span class="score-pill">${result.correct}/${result.total}</span></div>
-        <div class="history-score-row"><strong>${pct.toFixed(1).replace('.', ',')}%</strong><div class="history-progress-track"><div class="history-progress-fill" style="width:${pct}%"></div></div><span>${result.correct} certas · ${result.wrong} erradas · ${result.blank} em branco</span></div>
+        <div class="history-card-top"><div class="exam-icon material-symbols-outlined" aria-hidden="true">description</div><div class="history-card-title"><h3 title="${escapeHTML(item.title || '')}">${escapeHTML(item.title || `Prova de ${result.total} questões`)}</h3><p>${escapeHTML(formatDate(item.updatedAt || item.createdAt))} · ${result.total} questões</p></div><span class="score-pill">${result.correct}/${result.total}</span></div>
+        <div class="history-score-row"><strong>${pct.toFixed(1).replace('.', ',')}%</strong><div class="history-progress-track"><div class="history-progress-fill" style="width:${pct}%"></div></div><span>${result.correct} certas · ${result.wrong + result.blank} erradas</span></div>
         <div class="history-subject-tags">${subjectTags}</div>
-        <div class="history-storage-row"><button class="row-action storage-action ${storageClass}" type="button" data-action="storage" aria-label="${storageLabel}" title="${storageLabel}" ${!currentUser || !supabaseClient || hasPendingOperation ? 'disabled' : ''}><span class="material-symbols-outlined" aria-hidden="true">${storageIcon}</span></button></div>
-        <div class="history-card-actions"><button class="row-action view" type="button" data-action="view">Ver gabarito completo <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button><button class="row-action" type="button" data-action="edit">Editar</button><button class="row-action delete" type="button" data-action="delete">Excluir</button></div>
+        <div class="history-card-actions"><button class="row-action storage-action ${storageClass}" type="button" data-action="storage" aria-label="${storageLabel}" title="${storageLabel}" ${!currentUser || !supabaseClient || hasPendingOperation ? 'disabled' : ''}><span class="material-symbols-outlined" aria-hidden="true">${storageIcon}</span></button><button class="row-action view" type="button" data-action="view">Ver gabarito completo <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button><button class="row-action" type="button" data-action="edit">Editar</button><button class="row-action delete" type="button" data-action="delete">Excluir</button></div>
       </article>`;
     }).join('');
     els.historyEmpty.classList.toggle('hidden', submissions.length > 0);

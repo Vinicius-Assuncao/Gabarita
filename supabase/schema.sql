@@ -1,6 +1,3 @@
--- Gabarita: tabela de correções vinculadas a usuários do Supabase Auth.
--- Execute este arquivo no SQL Editor do seu projeto Supabase.
-
 create table if not exists public.corrections (
   user_id uuid not null references auth.users (id) on delete cascade,
   id text not null,
