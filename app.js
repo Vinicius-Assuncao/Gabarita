@@ -32,7 +32,7 @@
   const els = {
     setupForm: $('#setup-form'), answersForm: $('#answers-form'), examTitle: $('#exam-title'),
     questionCount: $('#question-count'), startNumber: $('#start-number'), pastedKey: $('#pasted-key'), parseKeyButton: $('#parse-key-button'), parseKeyFeedback: $('#parse-key-feedback'), keyGrid: $('#key-grid'),
-    studentGrid: $('#student-grid'), subjectGrid: $('#subject-grid'), emptyBuilder: $('#empty-builder'),
+    studentGrid: $('#student-grid'), subjectGrid: $('#subject-grid'),
     formTitle: $('#form-title'), stepPill: $('#step-pill'), backButton: $('#back-button'),
     resultStatus: $('#result-status'), resultEmpty: $('#result-empty'), resultContent: $('#result-content'),
     resultExamName: $('#result-exam-name'), reviewNoResults: $('#review-no-results'),
@@ -426,7 +426,9 @@
       if (active) link.setAttribute('aria-current', 'page');
       else link.removeAttribute('aria-current');
     });
-    els.backToHistoryButton.textContent = detailReturnScreen === 'history' ? '← Voltar ao histórico' : '← Voltar para corrigir';
+    els.backToHistoryButton.innerHTML = detailReturnScreen === 'history'
+      ? '<span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Voltar ao histórico'
+      : '<span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Voltar para corrigir';
     window.scrollTo({top: 0, behavior: 'smooth'});
   }
   function setDetailMode(mode) {
@@ -473,7 +475,8 @@
   }
   function subjectTag(subject, extraClass = '') {
     const safeSubject = SUBJECTS.includes(subject) ? subject : 'Sem matéria';
-    return `<span class="review-subject ${extraClass}" style="${subjectStyle(safeSubject)}">${safeSubject === 'Sem matéria' ? '○ ' : '✦ '}${escapeHTML(safeSubject)}</span>`;
+    const icon = safeSubject === 'Sem matéria' ? 'radio_button_unchecked' : 'auto_awesome';
+    return `<span class="review-subject ${extraClass}" style="${subjectStyle(safeSubject)}"><span class="material-symbols-outlined" aria-hidden="true">${icon}</span>${escapeHTML(safeSubject)}</span>`;
   }
   function applySubjectColor(select) {
     const wrapper = select.closest('.subject-cell');
@@ -565,11 +568,10 @@
     editingId = null;
     renderInputs();
     els.setupForm.classList.add('hidden');
-    els.emptyBuilder.classList.add('hidden');
     els.answersForm.classList.remove('hidden');
     els.formTitle.textContent = 'Gabarito importado';
     els.stepPill.textContent = 'ETAPA 2';
-    $('#grade-button').innerHTML = 'Corrigir e salvar <span>→</span>';
+    $('#grade-button').innerHTML = 'Corrigir e salvar <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>';
 
     const missingText = parsed.missing.length
       ? ` Faltam as questões ${parsed.missing.join(', ')}; complete essas alternativas antes de salvar.`
@@ -589,17 +591,17 @@
     currentDraft = null; editingId = null; els.setupForm.reset();
     els.examTitle.value = ''; els.questionCount.value = '20'; els.startNumber.value = '1';
     els.pastedKey.value = ''; els.parseKeyFeedback.textContent = ''; els.parseKeyFeedback.className = 'parse-key-feedback hidden';
-    els.setupForm.classList.remove('hidden'); els.answersForm.classList.add('hidden'); els.emptyBuilder.classList.remove('hidden');
+    els.setupForm.classList.remove('hidden'); els.answersForm.classList.add('hidden');
     els.formTitle.textContent = 'Nova correção'; els.stepPill.textContent = 'ETAPA 1';
-    $('#grade-button').innerHTML = 'Corrigir e salvar <span>→</span>';
+    $('#grade-button').innerHTML = 'Corrigir e salvar <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>';
   }
   function editSubmission(item) {
     editingId = item.id;
     currentDraft = {title:item.title || '', count:item.key.length, start:Number(item.start) || 1, key:[...item.key], answers:[...item.answers], subjects:[...(item.subjects || [])]};
     els.examTitle.value = currentDraft.title; els.questionCount.value = String(currentDraft.count); els.startNumber.value = String(currentDraft.start);
     renderInputs(); els.formTitle.textContent = 'Editar correção'; els.stepPill.textContent = 'EDIÇÃO';
-    $('#grade-button').innerHTML = 'Salvar alterações <span>✓</span>';
-    els.setupForm.classList.add('hidden'); els.emptyBuilder.classList.add('hidden'); els.answersForm.classList.remove('hidden');
+    $('#grade-button').innerHTML = 'Salvar alterações <span class="material-symbols-outlined" aria-hidden="true">check</span>';
+    els.setupForm.classList.add('hidden'); els.answersForm.classList.remove('hidden');
     setDetailMode('edit');
     showScreen('detail', 'history');
   }
@@ -617,14 +619,14 @@
     const old = currentDraft;
     currentDraft = {title:els.examTitle.value.trim(), count, start, key:Array(count).fill(''), answers:Array(count).fill(''), subjects:Array(count).fill('Sem matéria')};
     if (old) for (let i=0; i<Math.min(count, old.count); i++) { currentDraft.key[i]=old.key[i] || ''; currentDraft.answers[i]=old.answers[i] || ''; currentDraft.subjects[i]=old.subjects?.[i] || 'Sem matéria'; }
-    renderInputs(); els.setupForm.classList.add('hidden'); els.emptyBuilder.classList.add('hidden'); els.answersForm.classList.remove('hidden');
+    renderInputs(); els.setupForm.classList.add('hidden'); els.answersForm.classList.remove('hidden');
     els.formTitle.textContent = editingId ? 'Editar correção' : 'Preencha as respostas'; els.stepPill.textContent = editingId ? 'EDIÇÃO' : 'ETAPA 2';
     $('#correcao').scrollIntoView({behavior:'smooth', block:'start'});
   });
   els.backButton.addEventListener('click', () => {
     currentDraft.title = els.examTitle.value.trim();
     currentDraft.key = gridValues(els.keyGrid); currentDraft.answers = gridValues(els.studentGrid); currentDraft.subjects = gridValues(els.subjectGrid);
-    els.setupForm.classList.remove('hidden'); els.answersForm.classList.add('hidden'); els.emptyBuilder.classList.add('hidden');
+    els.setupForm.classList.remove('hidden'); els.answersForm.classList.add('hidden');
     els.formTitle.textContent = editingId ? 'Editar correção' : 'Nova correção'; els.stepPill.textContent = editingId ? 'EDIÇÃO' : 'ETAPA 1';
     $('#correcao').scrollIntoView({behavior:'smooth', block:'start'});
   });
@@ -692,8 +694,8 @@
     let title = 'Correção concluída!', message = 'Confira questão por questão e use o resultado para orientar seus estudos.';
     if (result.percent >= 90) { title = 'Excelente resultado!'; message = 'Seu desempenho foi muito alto. Continue com esse ritmo de estudos!'; }
     else if (result.percent >= 70) { title = 'Bom trabalho!'; message = 'Revise os erros para avançar ainda mais.'; }
-    else if (result.percent >= 50) { title = 'Você está evoluindo!'; message = 'Use as questões erradas como guia para sua próxima revisão.'; }
     else { title = 'Cada erro ensina algo.'; message = 'Revise os conteúdos e tente novamente. O importante é acompanhar sua evolução.'; }
+    els.resultMessage.classList.toggle('hidden', result.percent >= 50 && result.percent < 70);
     els.resultMessage.querySelector('strong').textContent = title;
     els.resultMessage.querySelector('p').textContent = message;
     els.reviewCount.textContent = `${result.total} questões`;
@@ -715,7 +717,8 @@
     els.reviewSubjectFilter.value = 'all';
 
     els.reviewList.innerHTML = result.details.map(detail => {
-      const statusText = detail.status === 'correct' ? '✓ Acertou' : detail.status === 'wrong' ? '✕ Errou' : '— Em branco';
+      const statusIcon = detail.status === 'correct' ? 'check' : detail.status === 'wrong' ? 'close' : 'horizontal_rule';
+      const statusText = `<span class="material-symbols-outlined" aria-hidden="true">${statusIcon}</span> ${detail.status === 'correct' ? 'Acertou' : detail.status === 'wrong' ? 'Errou' : 'Em branco'}`;
       const yourAnswer = detail.answer || '—';
       const answerDescription = detail.status === 'correct' ? 'Resposta certa' : detail.status === 'wrong' ? 'Resposta diferente do gabarito' : 'Questão sem resposta';
       const subject = subjectTag(detail.subject, 'review-subject-large');
@@ -758,7 +761,7 @@
         ? `--subject-bg:${colors.bg};--subject-border:${colors.border};--subject-ink:${colors.ink};--subject-light:${colors.light}`
         : subjectStyle(subject);
       const subjectLabel = areaMode
-        ? `<span class="review-subject" style="${style}">✦ ${escapeHTML(subject)}</span>`
+        ? `<span class="review-subject" style="${style}"><span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span>${escapeHTML(subject)}</span>`
         : subjectTag(subject);
       return `<article class="subject-performance-card${perfect ? ' perfect-score' : ''}" style="${style}">
         <div class="subject-performance-top"><div class="subject-performance-subject">${subjectLabel}${perfect ? '<svg class="subject-perfect-trophy" role="img" aria-label="Aproveitamento perfeito" viewBox="0 0 24 24"><path d="M7 3h10v3h4v3a5 5 0 0 1-5 5h-.4a5 5 0 0 1-2.6 2.7V20h4v2H7v-2h4v-3.3A5 5 0 0 1 8.4 14H8a5 5 0 0 1-5-5V6h4V3Zm0 5H5v1a3 3 0 0 0 2.7 3A8 8 0 0 1 7 9V8Zm10 0v1a8 8 0 0 1-.7 3A3 3 0 0 0 19 9V8h-2Z"/></svg>' : ''}</div><strong>${percent.toFixed(1).replace('.', ',')}%</strong></div>
@@ -812,16 +815,15 @@
     const sorted = [...submissions].sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
     els.historyBody.innerHTML = sorted.map(item => {
       const result = calculate(item), pct = result.percent;
-      const scoreClass = pct >= 70 ? '' : pct >= 50 ? 'mid' : 'low';
       const subjects = [...new Set((item.subjects || []).filter(subject => subject && subject !== 'Sem matéria'))];
       const subjectTags = subjects.length
         ? `${subjects.slice(0, 5).map(subject => subjectTag(subject, 'history-subject-tag')).join('')}${subjects.length > 5 ? `<span class="subject-overflow">+${subjects.length - 5}</span>` : ''}`
         : subjectTag('Sem matéria', 'history-subject-tag');
       return `<article class="history-card" data-id="${escapeHTML(item.id)}">
-        <div class="history-card-top"><div class="exam-icon">▤</div><div class="history-card-title"><h3 title="${escapeHTML(item.title || '')}">${escapeHTML(item.title || `Prova de ${result.total} questões`)}</h3><p>${escapeHTML(formatDate(item.updatedAt || item.createdAt))} · ${result.total} questões · começa na ${Number(item.start) || 1}</p></div><span class="score-pill ${scoreClass}">${result.correct}/${result.total}</span></div>
+        <div class="history-card-top"><div class="exam-icon material-symbols-outlined" aria-hidden="true">description</div><div class="history-card-title"><h3 title="${escapeHTML(item.title || '')}">${escapeHTML(item.title || `Prova de ${result.total} questões`)}</h3><p>${escapeHTML(formatDate(item.updatedAt || item.createdAt))} · ${result.total} questões · começa na ${Number(item.start) || 1}</p></div><span class="score-pill">${result.correct}/${result.total}</span></div>
         <div class="history-score-row"><strong>${pct.toFixed(1).replace('.', ',')}%</strong><div class="history-progress-track"><div class="history-progress-fill" style="width:${pct}%"></div></div><span>${result.correct} certas · ${result.wrong} erradas · ${result.blank} em branco</span></div>
         <div class="history-subject-tags">${subjectTags}</div>
-        <div class="history-card-actions"><button class="row-action view" type="button" data-action="view">Ver gabarito completo <span>→</span></button><button class="row-action" type="button" data-action="edit">Editar</button><button class="row-action delete" type="button" data-action="delete">Excluir</button></div>
+        <div class="history-card-actions"><button class="row-action view" type="button" data-action="view">Ver gabarito completo <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button><button class="row-action" type="button" data-action="edit">Editar</button><button class="row-action delete" type="button" data-action="delete">Excluir</button></div>
       </article>`;
     }).join('');
     els.historyEmpty.classList.toggle('hidden', submissions.length > 0);
