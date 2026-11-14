@@ -15,7 +15,10 @@
 </head>
 <body>
   <div class="app-shell">
-    <aside class="sidebar">
+    <aside class="sidebar" id="app-sidebar">
+      <button class="mobile-menu-close" id="mobile-menu-close" type="button" aria-label="Fechar menu">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
       <a class="brand" href="#inicio" data-screen="home" aria-label="Gabarita início">
         <span class="brand-mark"><span></span><span></span><span></span></span>
         <span>gabarita<span class="brand-dot">.</span></span>
@@ -32,15 +35,19 @@
       </div>
       <div class="sidebar-footer"><span class="online-dot"></span> <span id="sidebar-storage-status">Histórico salvo neste navegador</span></div>
     </aside>
+    <button class="mobile-menu-backdrop hidden" id="mobile-menu-backdrop" type="button" aria-label="Fechar menu"></button>
 
     <main class="main-content" id="inicio">
       <header class="topbar">
-        <div class="breadcrumb">Área de estudos <span>/</span> <strong>Gabaritos</strong></div>
+        <button class="mobile-menu-toggle" id="mobile-menu-toggle" type="button" aria-label="Abrir menu" aria-controls="app-sidebar" aria-expanded="false">
+          <span class="material-symbols-outlined" aria-hidden="true">menu</span>
+        </button>
         <div class="topbar-right">
           <div class="account-controls" aria-label="Conta e sincronização">
-            <span id="account-status" class="account-status">Histórico local</span>
-            <button class="account-button" id="google-signin-button" type="button">Entrar com Google</button>
             <button class="account-button account-button-secondary" id="google-signout-button" type="button" hidden>Sair</button>
+            <span id="account-status" class="account-status">Histórico local</span>
+            <span id="account-avatar" class="account-avatar" hidden></span>
+            <button class="account-button" id="google-signin-button" type="button">Entrar com Google</button>
           </div>
         </div>
       </header>
@@ -102,8 +109,16 @@
         <article class="stat-card"><div class="stat-top"><span class="stat-label">Melhor resultado</span><span class="stat-icon gold material-symbols-outlined" aria-hidden="true">emoji_events</span></div><div class="stat-value" id="stat-best">—<small>%</small></div><div class="stat-foot" id="stat-best-caption">Seu recorde pessoal</div></article>
       </section>
       <section class="panel history-panel" id="historico">
-        <div class="history-heading"><div class="heading-left"><div class="heading-icon history-icon material-symbols-outlined" aria-hidden="true">history</div><div><h2>Histórico de correções</h2><p>Abra uma correção anterior para rever cada questão, suas respostas e o gabarito oficial.</p></div></div><div class="history-actions"><button class="text-button" type="button" id="export-button"><span class="material-symbols-outlined" aria-hidden="true">file_download</span> Exportar cópia</button><button class="text-button" type="button" id="import-trigger"><span class="material-symbols-outlined" aria-hidden="true">file_upload</span> Importar</button><input type="file" id="import-file" accept="application/json,.json" hidden /><button class="icon-button material-symbols-outlined" id="clear-history-button" type="button" title="Apagar histórico" aria-label="Apagar histórico">delete</button></div></div>
+        <div class="history-heading">
+          <div class="heading-left"><div class="heading-icon history-icon material-symbols-outlined" aria-hidden="true">history</div><div><h2>Histórico de correções</h2><p>Abra uma correção anterior para rever cada questão, suas respostas e o gabarito oficial.</p></div></div>
+          <label class="history-search" for="history-search">
+            <span class="material-symbols-outlined" aria-hidden="true">search</span>
+            <input id="history-search" type="search" placeholder="Pesquisar por prova ou matéria" autocomplete="off" />
+          </label>
+        </div>
+        <div class="history-actions"><button class="text-button" type="button" id="export-button"><span class="material-symbols-outlined" aria-hidden="true">file_download</span> Exportar cópia</button><button class="text-button" type="button" id="import-trigger"><span class="material-symbols-outlined" aria-hidden="true">file_upload</span> Importar</button><input type="file" id="import-file" accept="application/json,.json" hidden /><button class="icon-button material-symbols-outlined" id="clear-history-button" type="button" title="Apagar histórico" aria-label="Apagar histórico">delete</button></div>
         <div class="history-card-grid" id="history-body"></div>
+        <div class="history-empty hidden" id="history-no-results" role="status" aria-live="polite"><div class="history-empty-icon material-symbols-outlined" aria-hidden="true">search_off</div><strong>Nenhuma correção encontrada</strong><p>Tente outro nome de prova ou matéria.</p></div>
         <div class="history-empty" id="history-empty"><div class="history-empty-icon material-symbols-outlined" aria-hidden="true">history</div><strong>Nenhum gabarito salvo ainda</strong><p>Depois de corrigir e salvar uma prova, você poderá abrir a correção completa aqui.</p></div>
         <div class="history-footer"><span id="history-count">0 envios salvos</span><span><span class="storage-dot"></span> <span id="storage-status-text">Histórico salvo neste navegador</span></span></div>
       </section>

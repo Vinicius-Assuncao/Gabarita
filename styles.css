@@ -392,3 +392,241 @@
   font-weight: 600;
   line-height: 1.55;
 }
+
+.history-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: min(100%, 360px);
+  margin: 0 0 16px auto;
+}
+
+.history-search > span {
+  position: absolute;
+  left: 13px;
+  color: #8b96a8;
+  font-size: 20px;
+  pointer-events: none;
+}
+
+.history-search input {
+  width: 100%;
+  height: 40px;
+  padding: 0 13px 0 40px;
+  border: 1px solid #e1e6ef;
+  border-radius: 9px;
+  background: #fff;
+  color: #26344d;
+  font: 500 12px 'DM Sans', sans-serif;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.history-search input::placeholder {
+  color: #9aa4b4;
+}
+
+.history-search input:focus {
+  border-color: #67cba6;
+  box-shadow: 0 0 0 3px #2bb98516;
+}
+
+.history-search:focus-within > span {
+  color: #168f66;
+}
+
+@media (max-width: 590px) {
+  .history-search {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
+.history-heading {
+  margin-bottom: 10px;
+}
+
+.history-heading .history-search {
+  flex-shrink: 0;
+  width: min(100%, 360px);
+  margin: 0;
+  align-self: center;
+}
+
+.history-actions {
+  margin: 0 0 16px;
+}
+
+@media (max-width: 1150px) {
+  .history-heading {
+    flex-wrap: wrap;
+  }
+
+  .history-heading .history-search {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 590px) {
+  .history-heading .history-search {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .history-actions {
+    margin-bottom: 14px;
+  }
+}
+
+.mobile-menu-toggle,
+.mobile-menu-close,
+.mobile-menu-backdrop {
+  display: none;
+}
+
+.account-avatar {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e5f7f0;
+  color: #16885e;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    z-index: 31;
+    width: min(270px, 85vw);
+    padding: 24px 17px 14px;
+    align-items: stretch;
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform .22s ease, visibility .22s;
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  .sidebar .brand {
+    padding: 1px 42px 36px 12px;
+  }
+
+  .sidebar .brand > span:last-child {
+    font-size: 24px;
+  }
+
+  .sidebar .sidebar-caption {
+    font-size: 9px;
+  }
+
+  .sidebar .side-nav {
+    width: auto;
+    align-items: stretch;
+  }
+
+  .sidebar .nav-link,
+  .sidebar .nav-link.active {
+    width: auto;
+    height: auto;
+    padding: 12px 13px;
+    justify-content: flex-start;
+    font-size: 13px;
+  }
+
+  .sidebar .nav-icon {
+    font-size: 20px;
+  }
+
+  .sidebar .sidebar-bottom {
+    display: block;
+  }
+
+  .sidebar .sidebar-footer {
+    padding: 0 7px;
+    font-size: 10px;
+  }
+
+  .main-content {
+    margin-left: 0;
+  }
+
+  .mobile-menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: #536176;
+  }
+
+  .mobile-menu-toggle:hover {
+    background: #e9edf4;
+  }
+
+  .mobile-menu-toggle .material-symbols-outlined {
+    font-size: 24px;
+  }
+
+  .mobile-menu-close {
+    position: absolute;
+    top: 24px;
+    right: 12px;
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #dce3f0;
+  }
+
+  .mobile-menu-close:hover {
+    background: #ffffff14;
+    color: #fff;
+  }
+
+  .mobile-menu-backdrop:not(.hidden) {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: block;
+    padding: 0;
+    border: 0;
+    background: #111d3566;
+  }
+
+  body.mobile-menu-open {
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 590px) {
+  .topbar-right .account-status {
+    display: inline-block;
+    max-width: 120px;
+  }
+
+  .topbar-right .account-avatar {
+    display: grid;
+  }
+
+  .account-controls {
+    margin-left: 0;
+  }
+}
+
+.topbar-right {
+  margin-left: auto;
+}

@@ -41,14 +41,18 @@
     subjectPerformanceTitle: $('#subject-performance-title'), subjectPerformanceDescription: $('#subject-performance-description'),
     subjectGroup: $('#subject-group'), subjectSort: $('#subject-sort'), reviewCount: $('#review-count'),
     reviewList: $('#review-list'), reviewSubjectFilter: $('#review-subject-filter'), scoreRing: $('#score-ring'), historyBody: $('#history-body'),
+    historySearch: $('#history-search'), historyNoResults: $('#history-no-results'),
     historyEmpty: $('#history-empty'), historyCount: $('#history-count'), toast: $('#toast'),
     dialog: $('#confirm-dialog'), dialogTitle: $('#dialog-title'), dialogMessage: $('#dialog-message'),
     dialogCancel: $('#dialog-cancel'), dialogConfirm: $('#dialog-confirm'), importFile: $('#import-file'),
     correctionPanel: $('.correction-panel'), resultPanel: $('#result-panel'),
     detailHeading: $('#detail-heading'), backToHistoryButton: $('#back-to-history-button'),
     detailToolbar: $('.detail-toolbar'), newCorrectionHeading: $('#new-correction-heading'),
+    sidebar: $('#app-sidebar'), mobileMenuToggle: $('#mobile-menu-toggle'),
+    mobileMenuClose: $('#mobile-menu-close'), mobileMenuBackdrop: $('#mobile-menu-backdrop'),
     accountStatus: $('#account-status'), signInButton: $('#google-signin-button'),
-    signOutButton: $('#google-signout-button'), storageStatus: $('#storage-status-text'),
+    signOutButton: $('#google-signout-button'), accountAvatar: $('#account-avatar'),
+    storageStatus: $('#storage-status-text'),
     sidebarStorageStatus: $('#sidebar-storage-status')
   };
 
@@ -111,16 +115,26 @@
   }
 
   function updateAccountUI() {
-    if (!els.accountStatus || !els.signInButton || !els.signOutButton) return;
+    if (!els.accountStatus || !els.signInButton || !els.signOutButton || !els.accountAvatar) return;
     if (currentUser) {
       const name = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || currentUser.email || 'Conta Google';
-      els.accountStatus.textContent = `Conectado: ${name}`;
+      const nameParts = String(name).trim().split(/\s+/).filter(Boolean);
+      const initials = nameParts.length > 1
+        ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`
+        : (nameParts[0] || '??').slice(0, 2);
+      els.accountStatus.textContent = name;
       els.accountStatus.title = currentUser.email || name;
+      els.accountAvatar.textContent = initials.toLocaleUpperCase('pt-BR');
+      els.accountAvatar.title = name;
+      els.accountAvatar.setAttribute('aria-label', `Perfil de ${name}`);
+      els.accountAvatar.hidden = false;
       els.signInButton.hidden = true;
       els.signOutButton.hidden = false;
     } else {
       els.accountStatus.textContent = supabaseClient ? 'Não conectado' : 'Configure o Supabase';
       els.accountStatus.title = els.accountStatus.textContent;
+      els.accountAvatar.textContent = '';
+      els.accountAvatar.hidden = true;
       els.signInButton.hidden = false;
       els.signInButton.disabled = !supabaseClient;
       els.signInButton.title = supabaseClient ? 'Entrar e sincronizar suas correções' : 'Preencha supabase-config.js para habilitar o login';
@@ -413,6 +427,27 @@
     els.toast.classList.add('show');
     clearTimeout(toastTimeout);
     toastTimeout = setTimeout(() => els.toast.classList.remove('show'), 3000);
+  }
+  function setMobileMenuOpen(open) {
+    if (!open) {
+      closeMobileMenu();
+      return;
+    }
+    els.sidebar.classList.add('mobile-open');
+    els.mobileMenuBackdrop.classList.remove('hidden');
+    els.mobileMenuToggle.setAttribute('aria-expanded', 'true');
+    els.mobileMenuToggle.setAttribute('aria-label', 'Fechar menu');
+    document.body.classList.add('mobile-menu-open');
+    els.mobileMenuClose.focus();
+  }
+  function closeMobileMenu() {
+    const wasOpen = els.sidebar.classList.contains('mobile-open');
+    els.sidebar.classList.remove('mobile-open');
+    els.mobileMenuBackdrop.classList.add('hidden');
+    els.mobileMenuToggle.setAttribute('aria-expanded', 'false');
+    els.mobileMenuToggle.setAttribute('aria-label', 'Abrir menu');
+    document.body.classList.remove('mobile-menu-open');
+    if (wasOpen) els.mobileMenuToggle.focus();
   }
   function showScreen(screen, returnScreen = detailReturnScreen) {
     if (screen === 'detail') detailReturnScreen = returnScreen;
@@ -811,9 +846,20 @@
     const results=submissions.map(item=>({item,...calculate(item)})); const avg=results.reduce((sum,r)=>sum+r.percent,0)/results.length; const best=results.reduce((max,r)=>r.percent>max.percent?r:max,results[0]);
     $('#stat-average').innerHTML=`${avg.toFixed(1).replace('.',',')}<small>%</small>`; $('#stat-best').innerHTML=`${best.percent.toFixed(1).replace('.',',')}<small>%</small>`; $('#stat-best-caption').textContent=best.item.title || 'Seu recorde pessoal';
   }
+  function normalizeSearchText(value) {
+    return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
+  }
   function renderHistory() {
     const sorted = [...submissions].sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
-    els.historyBody.innerHTML = sorted.map(item => {
+    if (!sorted.length) els.historySearch.value = '';
+    const searchTerm = normalizeSearchText(els.historySearch.value);
+    const filtered = sorted.filter(item => {
+      if (!searchTerm) return true;
+      const title = item.title || `Prova de ${item.key.length} questões`;
+      const subjects = Array.isArray(item.subjects) ? item.subjects.filter(subject => typeof subject === 'string') : [];
+      return normalizeSearchText(`${title} ${subjects.join(' ')}`).includes(searchTerm);
+    });
+    els.historyBody.innerHTML = filtered.map(item => {
       const result = calculate(item), pct = result.percent;
       const subjects = [...new Set((item.subjects || []).filter(subject => subject && subject !== 'Sem matéria'))];
       const subjectTags = subjects.length
@@ -827,9 +873,14 @@
       </article>`;
     }).join('');
     els.historyEmpty.classList.toggle('hidden', submissions.length > 0);
-    els.historyBody.classList.toggle('hidden', submissions.length === 0);
-    els.historyCount.textContent = `${submissions.length} ${submissions.length === 1 ? 'correção salva' : 'correções salvas'}`;
+    els.historyNoResults.classList.toggle('hidden', submissions.length === 0 || filtered.length > 0);
+    els.historyBody.classList.toggle('hidden', filtered.length === 0);
+    els.historySearch.closest('.history-search').classList.toggle('hidden', submissions.length === 0);
+    els.historyCount.textContent = searchTerm
+      ? `${filtered.length} ${filtered.length === 1 ? 'correção encontrada' : 'correções encontradas'} de ${submissions.length}`
+      : `${submissions.length} ${submissions.length === 1 ? 'correção salva' : 'correções salvas'}`;
   }
+  els.historySearch.addEventListener('input', renderHistory);
   els.historyBody.addEventListener('click', event => {
     const card = event.target.closest('.history-card[data-id]');
     if (!card) return;
@@ -894,8 +945,18 @@
   els.dialogCancel.addEventListener('click',()=>{pendingConfirm=null;els.dialog.close();});
   els.dialogConfirm.addEventListener('click',()=>{const action=pendingConfirm;pendingConfirm=null;els.dialog.close();if(action)action();});
   els.dialog.addEventListener('click',event=>{if(event.target===els.dialog)els.dialog.close();});
+  els.mobileMenuToggle.addEventListener('click', () => setMobileMenuOpen(!els.sidebar.classList.contains('mobile-open')));
+  els.mobileMenuClose.addEventListener('click', closeMobileMenu);
+  els.mobileMenuBackdrop.addEventListener('click', closeMobileMenu);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && els.sidebar.classList.contains('mobile-open')) closeMobileMenu();
+  });
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 900) closeMobileMenu();
+  });
   document.querySelectorAll('[data-screen]').forEach(link=>link.addEventListener('click',event=>{
     event.preventDefault();
+    closeMobileMenu();
     if (link.dataset.screen === 'correction') {
       $('#start-correction-button').click();
       return;
