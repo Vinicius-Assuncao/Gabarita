@@ -269,3 +269,28 @@
 .review-subject-filter:focus { border-color: #67cba6; box-shadow: 0 0 0 3px #2bb98516; }
 @media (max-width: 720px) { .review-subject-filter { min-height: 34px; font-size: 10px; } }
 .review-filters .review-subject-filter { margin-left: auto; }
+
+
+/* Conta Google opcional e status de sincronização com o Supabase. */
+.account-controls { display:flex; align-items:center; justify-content:flex-end; gap:8px; min-width:0; margin-left:5px; }
+.account-status { max-width:210px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#68758a; font-size:10px; font-weight:600; }
+.account-button { min-height:32px; padding:0 12px; border:1px solid #bfe9d7; border-radius:9px; background:#e9f8f1; color:#147a57; font-size:10px; font-weight:800; white-space:nowrap; transition:background .15s,border-color .15s; }
+.account-button:hover:not(:disabled) { background:#d8f3e7; border-color:#8ed9b8; }
+.account-button:disabled { cursor:not-allowed; opacity:.55; }
+.account-button-secondary { border-color:#e2e8f0; background:#fff; color:#64748b; }
+.account-button-secondary:hover:not(:disabled) { background:#f8fafc; border-color:#cbd5e1; }
+[hidden] { display:none !important; }
+#storage-status-text, #sidebar-storage-status { transition:color .15s; }
+@media(max-width:900px) {
+  .topbar { gap:12px; }
+  .topbar-right { gap:7px; }
+  .topbar-message { display:none; }
+  .account-status { max-width:140px; }
+}
+@media(max-width:590px) {
+  .main-content { padding-left:15px; padding-right:15px; }
+  .topbar { min-height:66px; height:auto; padding:10px 0; }
+  .account-controls { gap:6px; }
+  .account-status { display:none; }
+  .account-button { min-height:30px; padding:0 9px; font-size:9px; }
+}

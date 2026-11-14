@@ -46,7 +46,10 @@
     dialogCancel: $('#dialog-cancel'), dialogConfirm: $('#dialog-confirm'), importFile: $('#import-file'),
     correctionPanel: $('.correction-panel'), resultPanel: $('#result-panel'),
     detailHeading: $('#detail-heading'), backToHistoryButton: $('#back-to-history-button'),
-    detailToolbar: $('.detail-toolbar'), newCorrectionHeading: $('#new-correction-heading')
+    detailToolbar: $('.detail-toolbar'), newCorrectionHeading: $('#new-correction-heading'),
+    accountStatus: $('#account-status'), signInButton: $('#google-signin-button'),
+    signOutButton: $('#google-signout-button'), storageStatus: $('#storage-status-text'),
+    sidebarStorageStatus: $('#sidebar-storage-status')
   };
 
   let submissions = loadSubmissions();
@@ -61,25 +64,347 @@
   let detailReturnScreen = 'correction';
   let toastTimeout;
   let pendingConfirm = null;
+  let currentUser = null;
+  let authInitialized = false;
+  let activeUserId = null;
+  let authFlowVersion = 0;
+  let cloudSyncTask = Promise.resolve(true);
+
+  const SUPABASE_CONFIG = window.GABARITA_SUPABASE_CONFIG || {};
+  const supabaseClient = window.supabase?.createClient && SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey
+    ? window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, {
+        auth: { flowType: 'pkce', autoRefreshToken: true, persistSession: true, detectSessionInUrl: true }
+      })
+    : null;
 
   function makeId() { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`; }
   function validSubmission(item) {
     return item && typeof item.id === 'string' && Array.isArray(item.key) && Array.isArray(item.answers) && item.key.length > 0 && item.key.length === item.answers.length;
   }
-  function loadSubmissions() {
+  function loadSubmissions(storageKey = STORAGE_KEY) {
     try {
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      const data = JSON.parse(localStorage.getItem(storageKey) || '[]');
       if (!Array.isArray(data)) return [];
       return data.filter(validSubmission).map(item => ({
         ...item,
-        subjects: Array.isArray(item.subjects) ? item.subjects.map(s => SUBJECTS.includes(s) ? s : 'Sem matéria') : item.key.map(() => 'Sem matéria')
+        subjects: item.key.map((_, index) => SUBJECTS.includes(item.subjects?.[index]) ? item.subjects[index] : 'Sem matéria')
       }));
     } catch (error) { console.warn('Histórico indisponível:', error); return []; }
   }
+  function getUserCacheKey(userId) { return `gabarita_submissions_v1_user_${userId}`; }
+  function getPendingQueueKey(userId) { return `gabarita_pending_v1_user_${userId}`; }
+  function getActiveStorageKey() { return currentUser ? getUserCacheKey(currentUser.id) : STORAGE_KEY; }
+
   function saveSubmissions() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(submissions)); return true; }
+    try { localStorage.setItem(getActiveStorageKey(), JSON.stringify(submissions)); return true; }
     catch (error) { showToast('Não foi possível salvar. O armazenamento do navegador pode estar cheio.'); return false; }
   }
+
+  function setStorageStatus(message, state = 'local') {
+    const color = state === 'synced' ? '#16885e' : state === 'warning' ? '#b7791f' : '#8994a6';
+    if (els.storageStatus) { els.storageStatus.textContent = message; els.storageStatus.style.color = color; }
+    if (els.sidebarStorageStatus) {
+      const sidebarColor = state === 'synced' ? '#61dbb0' : state === 'warning' ? '#f2c46d' : '#8b9ab3';
+      els.sidebarStorageStatus.textContent = message;
+      els.sidebarStorageStatus.style.color = sidebarColor;
+    }
+  }
+
+  function updateAccountUI() {
+    if (!els.accountStatus || !els.signInButton || !els.signOutButton) return;
+    if (currentUser) {
+      const name = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || currentUser.email || 'Conta Google';
+      els.accountStatus.textContent = `Conectado: ${name}`;
+      els.accountStatus.title = currentUser.email || name;
+      els.signInButton.hidden = true;
+      els.signOutButton.hidden = false;
+    } else {
+      els.accountStatus.textContent = supabaseClient ? 'Não conectado' : 'Configure o Supabase';
+      els.accountStatus.title = els.accountStatus.textContent;
+      els.signInButton.hidden = false;
+      els.signInButton.disabled = !supabaseClient;
+      els.signInButton.title = supabaseClient ? 'Entrar e sincronizar suas correções' : 'Preencha supabase-config.js para habilitar o login';
+      els.signOutButton.hidden = true;
+    }
+  }
+
+  function readPendingOperations(userId) {
+    try {
+      const value = JSON.parse(localStorage.getItem(getPendingQueueKey(userId)) || '[]');
+      return Array.isArray(value) ? value : [];
+    } catch (error) { return []; }
+  }
+
+  function writePendingOperations(userId, operations) {
+    localStorage.setItem(getPendingQueueKey(userId), JSON.stringify(operations));
+  }
+
+  function enqueueCloudOperation(operation) {
+    if (!currentUser) return;
+    const operations = readPendingOperations(currentUser.id);
+    operations.push({ operationId: makeId(), ...operation, queuedAt: new Date().toISOString() });
+    writePendingOperations(currentUser.id, operations);
+  }
+
+  function toCloudRow(item, userId) {
+    return {
+      user_id: userId,
+      id: item.id,
+      title: item.title || '',
+      start_question: Number(item.start) || 1,
+      answer_key: item.key,
+      answers: item.answers,
+      subjects: item.key.map((_, index) => SUBJECTS.includes(item.subjects?.[index]) ? item.subjects[index] : 'Sem matéria'),
+      created_at: item.createdAt || new Date().toISOString(),
+      updated_at: item.updatedAt || item.createdAt || new Date().toISOString()
+    };
+  }
+
+  function fromCloudRow(row) {
+    const item = {
+      id: String(row.id),
+      title: String(row.title || ''),
+      start: Number(row.start_question) || 1,
+      key: Array.isArray(row.answer_key) ? row.answer_key : [],
+      answers: Array.isArray(row.answers) ? row.answers : [],
+      subjects: Array.isArray(row.subjects) ? row.subjects : [],
+      createdAt: row.created_at || new Date().toISOString(),
+      updatedAt: row.updated_at || row.created_at || new Date().toISOString()
+    };
+    if (!validSubmission(item)) return null;
+    item.subjects = item.key.map((_, index) => SUBJECTS.includes(item.subjects[index]) ? item.subjects[index] : 'Sem matéria');
+    return item;
+  }
+
+  function mergeSubmissions(first, second) {
+    const merged = new Map();
+    [...first, ...second].filter(validSubmission).forEach(item => {
+      const previous = merged.get(item.id);
+      const itemDate = new Date(item.updatedAt || item.createdAt || 0).getTime() || 0;
+      const previousDate = previous ? (new Date(previous.updatedAt || previous.createdAt || 0).getTime() || 0) : -1;
+      if (!previous || itemDate >= previousDate) merged.set(item.id, {
+        ...item,
+        subjects: item.key.map((_, index) => SUBJECTS.includes(item.subjects?.[index]) ? item.subjects[index] : 'Sem matéria')
+      });
+    });
+    return [...merged.values()].sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+  }
+
+  async function executeCloudOperation(operation, userId) {
+    const table = supabaseClient.from('corrections');
+    if (operation.type === 'upsertMany') {
+      // Deduplica IDs e evita que uma cópia antiga sobrescreva uma versão mais recente na nuvem.
+      const uniqueItems = new Map();
+      (operation.items || []).filter(validSubmission).forEach(item => {
+        const previous = uniqueItems.get(item.id);
+        const itemTime = new Date(item.updatedAt || item.createdAt || 0).getTime() || 0;
+        const previousTime = previous ? (new Date(previous.updatedAt || previous.createdAt || 0).getTime() || 0) : -1;
+        if (!previous || itemTime >= previousTime) uniqueItems.set(item.id, item);
+      });
+      const rows = [...uniqueItems.values()].map(item => toCloudRow(item, userId));
+      if (!rows.length) return;
+
+      for (let index = 0; index < rows.length; index += 50) {
+        const batch = rows.slice(index, index + 50);
+        const { data: existingRows, error: selectError } = await supabaseClient
+          .from('corrections')
+          .select('id,updated_at')
+          .eq('user_id', userId)
+          .in('id', batch.map(row => row.id));
+        if (selectError) throw selectError;
+
+        const existingById = new Map((existingRows || []).map(row => [row.id, row]));
+        const rowsToSave = batch.filter(row => {
+          const existing = existingById.get(row.id);
+          if (!existing) return true;
+          const incomingTime = new Date(row.updated_at).getTime() || 0;
+          const savedTime = new Date(existing.updated_at).getTime() || 0;
+          return incomingTime >= savedTime;
+        });
+        if (!rowsToSave.length) continue;
+
+        const { error } = await supabaseClient.from('corrections').upsert(rowsToSave, { onConflict: 'user_id,id' });
+        if (error) throw error;
+      }
+      return;
+    }
+    if (operation.type === 'deleteOne') {
+      const { error } = await table.delete().eq('user_id', userId).eq('id', operation.id);
+      if (error) throw error;
+      return;
+    }
+    if (operation.type === 'deleteAll') {
+      const { error } = await table.delete().eq('user_id', userId);
+      if (error) throw error;
+    }
+  }
+
+  function flushCloudQueue() {
+    if (!supabaseClient || !currentUser) return Promise.resolve(false);
+    const userId = currentUser.id;
+    const run = async () => {
+      let operations = readPendingOperations(userId);
+      while (operations.length) {
+        if (!currentUser || currentUser.id !== userId) return false;
+        const operation = operations[0];
+        try {
+          await executeCloudOperation(operation, userId);
+          operations = readPendingOperations(userId).filter(item => item.operationId !== operation.operationId);
+          writePendingOperations(userId, operations);
+        } catch (error) {
+          console.error('Falha ao sincronizar com o Supabase:', error);
+          setStorageStatus('Sincronização pendente; cópia mantida neste dispositivo', 'warning');
+          return false;
+        }
+      }
+      if (currentUser?.id === userId) setStorageStatus('Sincronizado com sua conta Google', 'synced');
+      return true;
+    };
+    cloudSyncTask = cloudSyncTask.then(run, run);
+    return cloudSyncTask;
+  }
+
+  async function syncCloudOperation(operation) {
+    if (!currentUser || !supabaseClient) return true;
+    try {
+      enqueueCloudOperation(operation);
+    } catch (error) {
+      console.error('Não foi possível enfileirar a sincronização:', error);
+      setStorageStatus('Salvo neste dispositivo; sincronização pendente', 'warning');
+      return false;
+    }
+    return flushCloudQueue();
+  }
+
+  async function fetchCloudSubmissions(userId) {
+    const { data, error } = await supabaseClient
+      .from('corrections')
+      .select('id,title,start_question,answer_key,answers,subjects,created_at,updated_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(fromCloudRow).filter(Boolean);
+  }
+
+  function applyPendingOperations(baseSubmissions, operations) {
+    const records = new Map(baseSubmissions.map(item => [item.id, item]));
+    operations.forEach(operation => {
+      if (operation.type === 'upsertMany') {
+        (operation.items || []).filter(validSubmission).forEach(item => records.set(item.id, item));
+      } else if (operation.type === 'deleteOne') {
+        records.delete(operation.id);
+      } else if (operation.type === 'deleteAll') {
+        records.clear();
+      }
+    });
+    return [...records.values()].sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+  }
+
+  async function loadUserHistory(user, flowVersion) {
+    setStorageStatus('Carregando correções da conta...', 'local');
+    const anonymousSubmissions = loadSubmissions(STORAGE_KEY);
+    let cachedSubmissions = loadSubmissions(getUserCacheKey(user.id));
+
+    // Ao entrar, as correções anônimas deste navegador passam a pertencer à conta atual.
+    // Elas são movidas para um cache isolado por usuário e entram na fila antes de limpar a chave anônima.
+    if (anonymousSubmissions.length) {
+      try {
+        enqueueCloudOperation({ type: 'upsertMany', items: mergeSubmissions([], anonymousSubmissions) });
+        cachedSubmissions = mergeSubmissions(cachedSubmissions, anonymousSubmissions);
+        localStorage.setItem(getUserCacheKey(user.id), JSON.stringify(cachedSubmissions));
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (error) {
+        console.error('Não foi possível preparar a migração do histórico local:', error);
+      }
+    }
+
+    try {
+      await flushCloudQueue();
+      const cloudSubmissions = await fetchCloudSubmissions(user.id);
+      if (flowVersion !== authFlowVersion || currentUser?.id !== user.id) return;
+
+      // Se alguma operação não pôde chegar ao Supabase, aplica a fila em memória para
+      // que exclusões e alterações pendentes também sejam refletidas na interface.
+      const pendingOperations = readPendingOperations(user.id);
+      submissions = applyPendingOperations(cloudSubmissions, pendingOperations);
+      if (loadSubmissions(STORAGE_KEY).length) {
+        submissions = mergeSubmissions(submissions, loadSubmissions(STORAGE_KEY));
+      }
+      saveSubmissions();
+      renderStats();
+      renderHistory();
+
+      if (!pendingOperations.length) setStorageStatus('Sincronizado com sua conta Google', 'synced');
+      else setStorageStatus('Sincronização pendente; cópia mantida neste dispositivo', 'warning');
+      if (anonymousSubmissions.length) showToast('Histórico local combinado com sua conta Google.');
+      else if (pendingOperations.length) showToast('Conta conectada. Há alterações aguardando sincronização.');
+      else showToast('Conta Google conectada. Histórico sincronizado.');
+    } catch (error) {
+      console.error('Não foi possível carregar o histórico da nuvem:', error);
+      if (flowVersion !== authFlowVersion || currentUser?.id !== user.id) return;
+      submissions = mergeSubmissions(cachedSubmissions, loadSubmissions(STORAGE_KEY));
+      saveSubmissions();
+      renderStats();
+      renderHistory();
+      setStorageStatus('Sem conexão com o Supabase; usando a cópia local', 'warning');
+      showToast('Não foi possível acessar o Supabase. Suas correções foram preservadas neste dispositivo.');
+    }
+  }
+
+  async function processAuthSession(session) {
+    const user = session?.user || null;
+    const nextUserId = user?.id || null;
+    if (authInitialized && nextUserId === activeUserId) {
+      if (user) currentUser = user;
+      updateAccountUI();
+      return;
+    }
+
+    authInitialized = true;
+    activeUserId = nextUserId;
+    const flowVersion = ++authFlowVersion;
+    currentUser = user;
+    updateAccountUI();
+
+    if (user) {
+      await loadUserHistory(user, flowVersion);
+    } else {
+      submissions = loadSubmissions(STORAGE_KEY);
+      renderStats();
+      renderHistory();
+      setStorageStatus('Histórico salvo neste navegador', 'local');
+    }
+  }
+
+  async function signInWithGoogle() {
+    if (!supabaseClient) {
+      showToast('Configure a URL e a chave pública em supabase-config.js primeiro.');
+      return;
+    }
+    try {
+      const redirectTo = `${window.location.origin}${window.location.pathname}`;
+      const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo, queryParams: { prompt: 'select_account' } }
+      });
+      if (error) showToast(`Não foi possível iniciar o login: ${error.message}`);
+    } catch (error) {
+      console.error('Erro ao iniciar login Google:', error);
+      showToast('Não foi possível abrir o login Google. Confira sua conexão e configuração.');
+    }
+  }
+
+  async function signOutFromGoogle() {
+    if (!supabaseClient) return;
+    try {
+      const { error } = await supabaseClient.auth.signOut();
+      if (error) showToast(`Não foi possível sair da conta: ${error.message}`);
+    } catch (error) {
+      console.error('Erro ao encerrar sessão:', error);
+      showToast('Não foi possível encerrar a sessão. Tente novamente.');
+    }
+  }
+
   function escapeHTML(value) {
     return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   }
@@ -303,7 +628,7 @@
     els.formTitle.textContent = editingId ? 'Editar correção' : 'Nova correção'; els.stepPill.textContent = editingId ? 'EDIÇÃO' : 'ETAPA 1';
     $('#correcao').scrollIntoView({behavior:'smooth', block:'start'});
   });
-  els.answersForm.addEventListener('submit', event => {
+  els.answersForm.addEventListener('submit', async event => {
     event.preventDefault(); if (!currentDraft) return;
     const key = gridValues(els.keyGrid), answers = gridValues(els.studentGrid), subjects = gridValues(els.subjectGrid);
     const missing = key.findIndex(value => !LETTERS.includes(value));
@@ -313,8 +638,11 @@
     const item = {id:editingId || makeId(), title:els.examTitle.value.trim() || `Prova de ${currentDraft.count} questões`, start:currentDraft.start, key, answers, subjects, createdAt:old?.createdAt || now, updatedAt:now};
     if (old) submissions = submissions.map(entry => entry.id === editingId ? item : entry); else submissions.unshift(item);
     if (!saveSubmissions()) return;
+    const synced = await syncCloudOperation({ type: 'upsertMany', items: [item] });
     activeResultId = item.id; renderStats(); renderHistory(); renderResult(item);
-    showToast(old ? 'Correção atualizada e salva.' : 'Correção salva no histórico!'); startNewDraft();
+    const actionText = old ? 'Correção atualizada' : 'Correção salva';
+    showToast(currentUser && !synced ? `${actionText} neste dispositivo. A sincronização ficará pendente.` : `${actionText}${currentUser ? ' e sincronizada.' : ' no histórico!'}`);
+    startNewDraft();
     setDetailMode('result');
     showScreen('detail');
   });
@@ -517,11 +845,13 @@
       title: 'Excluir este envio?',
       message: `“${item.title}” será removido do histórico. Essa ação não pode ser desfeita.`,
       confirmText: 'Excluir envio',
-      onConfirm: () => {
+      onConfirm: async () => {
         submissions = submissions.filter(entry => entry.id !== item.id);
         saveSubmissions();
+        const synced = await syncCloudOperation({ type: 'deleteOne', id: item.id });
         if (activeResultId === item.id) renderResult(null);
-        renderStats(); renderHistory(); showToast('Envio excluído do histórico.');
+        renderStats(); renderHistory();
+        showToast(currentUser && !synced ? 'Removido deste dispositivo; exclusão pendente de sincronização.' : 'Envio excluído do histórico.');
       }
     });
   });
@@ -542,7 +872,7 @@
   els.backToHistoryButton.addEventListener('click',()=>showScreen(detailReturnScreen));
   $('#clear-history-button').addEventListener('click',()=>{
     if(!submissions.length){showToast('Seu histórico já está vazio.');return;}
-    askConfirm({title:'Apagar todo o histórico?',message:'Todos resultados salvos neste navegador serão removidos. Considere exportar uma cópia antes.',confirmText:'Apagar tudo',onConfirm:()=>{submissions=[];saveSubmissions();renderStats();renderHistory();renderResult(null);showToast('Histórico apagado.');}});
+    askConfirm({title:'Apagar todo o histórico?',message:currentUser ? 'Todas as correções desta conta Google serão removidas da nuvem e deste dispositivo. Considere exportar uma cópia antes.' : 'Todos os resultados salvos neste navegador serão removidos. Considere exportar uma cópia antes.',confirmText:'Apagar tudo',onConfirm:async()=>{submissions=[];saveSubmissions();const synced=await syncCloudOperation({type:'deleteAll'});renderStats();renderHistory();renderResult(null);showToast(currentUser && !synced ? 'Histórico removido deste dispositivo; exclusão pendente de sincronização.' : 'Histórico apagado.');}});
   });
   $('#export-button').addEventListener('click',()=>{
     const blob=new Blob([JSON.stringify({app:'Gabarita',version:2,exportedAt:new Date().toISOString(),submissions},null,2)],{type:'application/json;charset=utf-8'});
@@ -556,7 +886,7 @@
       if(!Array.isArray(incoming))throw new Error('Formato inválido');
       const clean=incoming.filter(validSubmission).map(item=>({id:typeof item.id==='string'?item.id:makeId(),title:String(item.title||`Prova de ${item.key.length} questões`).slice(0,80),start:Math.max(1,Number(item.start)||1),key:item.key.map(v=>LETTERS.includes(v)?v:''),answers:item.answers.map(v=>LETTERS.includes(v)?v:''),subjects:item.key.map((_,i)=>SUBJECTS.includes(item.subjects?.[i])?item.subjects[i]:'Sem matéria'),createdAt:item.createdAt||new Date().toISOString(),updatedAt:item.updatedAt||item.createdAt||new Date().toISOString()})).filter(item=>item.key.every(Boolean));
       if(!clean.length)throw new Error('Nenhum envio válido');
-      askConfirm({title:'Importar histórico?',message:`${clean.length} envio(s) válido(s) encontrado(s). Registros com o mesmo ID serão atualizados e os demais adicionados.`,confirmText:'Importar',danger:false,onConfirm:()=>{const map=new Map(submissions.map(item=>[item.id,item]));clean.forEach(item=>map.set(item.id,item));submissions=Array.from(map.values()).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt));if(saveSubmissions()){renderStats();renderHistory();showToast(`${clean.length} envio(s) importado(s).`);}}});
+      askConfirm({title:'Importar histórico?',message:`${clean.length} envio(s) válido(s) encontrado(s). Registros com o mesmo ID serão atualizados e os demais adicionados.`,confirmText:'Importar',danger:false,onConfirm:async()=>{const map=new Map(submissions.map(item=>[item.id,item]));clean.forEach(item=>map.set(item.id,item));submissions=Array.from(map.values()).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt));if(saveSubmissions()){const uniqueImported = [...new Map(clean.map(item => [item.id, item])).values()];const synced=await syncCloudOperation({type:'upsertMany',items:uniqueImported});renderStats();renderHistory();showToast(currentUser && !synced ? `${clean.length} envio(s) importado(s) localmente; sincronização pendente.` : `${clean.length} envio(s) importado(s).`);}}});
     }catch(error){showToast('Não foi possível importar. Selecione um JSON exportado pelo Gabarita.');}finally{els.importFile.value='';}
   });
   els.dialogCancel.addEventListener('click',()=>{pendingConfirm=null;els.dialog.close();});
@@ -574,5 +904,26 @@
     $('#start-correction-button').click();
   });
   $('#home-open-history-button').addEventListener('click',()=>showScreen('history'));
+  els.signInButton?.addEventListener('click', signInWithGoogle);
+  els.signOutButton?.addEventListener('click', signOutFromGoogle);
+
   renderStats();renderHistory();
+  updateAccountUI();
+  if (supabaseClient) {
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        Promise.resolve().then(() => processAuthSession(session));
+      }
+    });
+    supabaseClient.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        console.error('Não foi possível recuperar a sessão do Supabase:', error);
+        setStorageStatus('Não foi possível validar a sessão; histórico local disponível', 'warning');
+        return;
+      }
+      processAuthSession(data.session);
+    });
+  } else {
+    setStorageStatus('Histórico salvo neste navegador', 'local');
+  }
 })();
