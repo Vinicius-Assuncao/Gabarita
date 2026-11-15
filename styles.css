@@ -724,8 +724,25 @@ p { margin: 0; }
 @media (max-width: 900px) {
   .topbar {
     position: sticky; top: 0; z-index: 30; margin: 0 -22px; padding: 0 22px;
-    background: #ffffff; border-bottom: 1px solid var(--line); box-shadow: 0 6px 14px -10px rgba(20,33,61,.18);
+    background: var(--navy); color: #fff; border-bottom: 1px solid var(--navy-line);
+    box-shadow: 0 6px 14px -10px rgba(0,0,0,.4);
   }
+  .mobile-brand { color: #fff; }
+  .mobile-menu-toggle {
+    background: var(--navy-2); border-color: var(--navy-line); color: #fff;
+  }
+  .mobile-menu-toggle:hover { background: #24396a; border-color: #405580; }
+  .mobile-menu-toggle:focus-visible { outline: 2px solid #4fd3a4; outline-offset: 2px; }
+  .account-status { color: #cfd8e8; }
+  .account-avatar { background: var(--navy-2); color: #d8d1ff; border: 1px solid var(--navy-line); }
+  .account-button {
+    background: var(--green-dark); border-color: #3ba87f; color: #fff;
+  }
+  .account-button:hover:not(:disabled) { background: var(--green); border-color: #58c69d; }
+  .account-button-secondary {
+    background: var(--navy-2); border-color: var(--navy-line); color: #e5ecf7;
+  }
+  .account-button-secondary:hover:not(:disabled) { background: #24396a; border-color: #405580; }
 }
 @media (max-width: 640px) {
   .topbar { margin: 0 -16px; padding: 0 16px; }
