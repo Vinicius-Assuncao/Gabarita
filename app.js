@@ -605,6 +605,15 @@
       return;
     }
 
+    // Guarda o que já foi digitado nas outras partes antes de ajustar o tamanho do gabarito.
+    if (currentDraft) {
+      currentDraft.title = els.examTitle.value.trim();
+      currentDraft.answers = gridValues(els.studentGrid);
+      currentDraft.subjects = gridValues(els.subjectGrid);
+    }
+    const old = currentDraft || { answers: [], subjects: [] };
+    const answers = Array.from({ length: parsed.count }, (_, i) => old.answers?.[i] || '');
+    const subjects = Array.from({ length: parsed.count }, (_, i) => old.subjects?.[i] || 'Sem matéria');
     els.questionCount.value = String(parsed.count);
     els.startNumber.value = String(parsed.start);
     currentDraft = {
@@ -612,35 +621,41 @@
       count: parsed.count,
       start: parsed.start,
       key: parsed.key,
-      answers: Array(parsed.count).fill(''),
-      subjects: Array(parsed.count).fill('Sem matéria')
+      answers,
+      subjects
     };
-    editingId = null;
     renderInputs();
-    els.setupForm.classList.add('hidden');
-    els.answersForm.classList.remove('hidden');
-    els.formTitle.textContent = 'Gabarito importado';
-    els.stepPill.textContent = 'ETAPA 2';
-    $('#grade-button').innerHTML = 'Corrigir e salvar <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>';
+    closeImportPanel();
 
     const missingText = parsed.missing.length
-      ? ` Faltam as questões ${parsed.missing.join(', ')}; complete essas alternativas antes de salvar.`
+      ? ` Faltam as questões ${parsed.missing.join(', ')}; complete essas alternativas.`
       : '';
     const modeText = parsed.mode === 'numbered'
-      ? `${parsed.found} questões identificadas por número (${parsed.start}–${parsed.start + parsed.count - 1}).`
+      ? `${parsed.found} questões importadas por número (${parsed.start}–${parsed.start + parsed.count - 1}).`
       : `${parsed.count} alternativas importadas em sequência a partir da questão ${parsed.start}.`;
-    els.parseKeyFeedback.textContent = modeText + missingText;
-    els.parseKeyFeedback.className = `parse-key-feedback ${parsed.missing.length ? 'warning' : 'success'}`;
-    if (parsed.missing.length) showToast(`Gabarito importado com ${parsed.missing.length} questão(ões) sem alternativa. Confira os campos vazios.`);
-    else showToast('Gabarito importado! Agora preencha suas respostas.');
-    $('#correcao').scrollIntoView({behavior:'smooth', block:'start'});
+    if (parsed.missing.length) showToast(modeText + missingText);
+    else showToast(modeText + ' Agora preencha suas respostas.');
+    els.keyGrid.scrollIntoView({behavior:'smooth', block:'start'});
   }
+  function openImportPanel() {
+    $('#import-panel').classList.remove('hidden');
+    $('#open-import-button').classList.add('hidden');
+    els.parseKeyFeedback.textContent = ''; els.parseKeyFeedback.className = 'parse-key-feedback hidden';
+    $('#pasted-key').focus();
+  }
+  function closeImportPanel() {
+    $('#import-panel').classList.add('hidden');
+    $('#open-import-button').classList.remove('hidden');
+  }
+  $('#open-import-button').addEventListener('click', openImportPanel);
+  $('#cancel-import-button').addEventListener('click', closeImportPanel);
   els.parseKeyButton.addEventListener('click', importPastedKey);
 
   function startNewDraft() {
     currentDraft = null; editingId = null; els.setupForm.reset();
     els.examTitle.value = ''; els.questionCount.value = '20'; els.startNumber.value = '1';
     els.pastedKey.value = ''; els.parseKeyFeedback.textContent = ''; els.parseKeyFeedback.className = 'parse-key-feedback hidden';
+    closeImportPanel();
     els.setupForm.classList.remove('hidden'); els.answersForm.classList.add('hidden');
     els.formTitle.textContent = 'Nova correção'; els.stepPill.textContent = 'ETAPA 1';
     $('#grade-button').innerHTML = 'Corrigir e salvar <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>';
@@ -738,6 +753,7 @@
     }
     activeResultId = item.id;
     activeReviewFilter = 'all';
+    activeReviewSubject = 'all';
     const result = calculate(item);
     els.resultStatus.textContent = 'Concluído';
     els.resultStatus.classList.add('done');
@@ -776,7 +792,6 @@
       .sort((a, b) => subjectOrder(a) - subjectOrder(b));
     els.reviewSubjectFilter.innerHTML = '<option value="all">Todas as matérias</option>' +
       examSubjects.map(subject => `<option value="${escapeHTML(subject)}">${escapeHTML(subject)}</option>`).join('');
-    activeReviewSubject = 'all';
     els.reviewSubjectFilter.value = 'all';
 
     els.reviewList.innerHTML = result.details.map(detail => {
@@ -827,7 +842,10 @@
       const subjectLabel = areaMode
         ? `<span class="review-subject" style="${style}"><span class="material-symbols-outlined" aria-hidden="true">${icon}</span>${escapeHTML(subject)}</span>`
         : subjectTag(subject);
-      return `<article class="subject-performance-card${perfect ? ' perfect-score' : ''}" style="${style}">
+      const subjectFilterAttributes = areaMode
+        ? ''
+        : ` role="button" tabindex="0" data-subject="${escapeHTML(subject)}" aria-label="Filtrar questões por ${escapeHTML(subject)}" aria-pressed="${activeReviewSubject === subject}"`;
+      return `<article class="subject-performance-card${perfect ? ' perfect-score' : ''}${areaMode ? '' : ' subject-performance-card-clickable'}"${subjectFilterAttributes} style="${style}">
         <div class="subject-performance-top"><div class="subject-performance-subject">${subjectLabel}${perfect ? '<svg class="subject-perfect-trophy" role="img" aria-label="Aproveitamento perfeito" viewBox="0 0 24 24"><path d="M7 3h10v3h4v3a5 5 0 0 1-5 5h-.4a5 5 0 0 1-2.6 2.7V20h4v2H7v-2h4v-3.3A5 5 0 0 1 8.4 14H8a5 5 0 0 1-5-5V6h4V3Zm0 5H5v1a3 3 0 0 0 2.7 3A8 8 0 0 1 7 9V8Zm10 0v1a8 8 0 0 1-.7 3A3 3 0 0 0 19 9V8h-2Z"/></svg>' : ''}</div><strong>${percent.toFixed(1).replace('.', ',')}%</strong></div>
         <div class="subject-performance-score">${correct}/${total} <span>acertos</span></div>
         ${areaMode ? `<div class="area-breakdown">${parts.map(part => `<span>${escapeHTML(part.subject)} <b>${part.correct}/${part.total}</b></span>`).join('')}</div>` : ''}
@@ -862,8 +880,30 @@
     applyReviewFilters();
   }
   els.reviewSubjectFilter.addEventListener('change', () => {
-    activeReviewSubject = els.reviewSubjectFilter.value;
+    setReviewSubject(els.reviewSubjectFilter.value);
+  });
+  function setReviewSubject(subject) {
+    activeReviewSubject = subject;
+    els.reviewSubjectFilter.value = subject;
+    els.subjectPerformanceList.querySelectorAll('.subject-performance-card[role="button"]').forEach(card => {
+      card.setAttribute('aria-pressed', String(card.dataset.subject === subject));
+    });
     applyReviewFilters();
+  }
+  els.subjectPerformanceList.addEventListener('click', event => {
+    const card = event.target.closest('.subject-performance-card[role="button"]');
+    if (card) setReviewSubject(activeReviewSubject === card.dataset.subject ? 'all' : card.dataset.subject);
+  });
+  els.subjectPerformanceList.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const card = event.target.closest('.subject-performance-card[role="button"]');
+    if (!card) return;
+    event.preventDefault();
+    setReviewSubject(activeReviewSubject === card.dataset.subject ? 'all' : card.dataset.subject);
+  });
+  $('.subject-performance').addEventListener('click', event => {
+    if (event.target.closest('.subject-performance-card, .subject-performance-controls')) return;
+    setReviewSubject('all');
   });
   document.querySelectorAll('.review-filter').forEach(button => {
     button.addEventListener('click', () => setReviewFilter(button.dataset.filter));

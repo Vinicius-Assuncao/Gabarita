@@ -226,23 +226,6 @@
                 <input id="exam-title" type="text" maxlength="80" placeholder="Ex.: Simulado Anglo — Matemática" />
               </div>
 
-              <div class="import-block">
-                <div class="import-heading">
-                  <span class="section-kicker">Importação automática</span>
-                  <h3>Já tem o gabarito em texto?</h3>
-                  <p>Cole o texto copiado. Se ele tiver os números das questões (como <strong>01 C 19 B 37 B</strong>), o Gabarita associa cada alternativa ao número certo, mesmo com as colunas misturadas.</p>
-                </div>
-                <label class="sr-only" for="pasted-key">Texto do gabarito oficial</label>
-                <textarea id="pasted-key" rows="5" spellcheck="false" placeholder="01 C 19 B 37 B 55 A&#10;02 D 20 A 38 C 56 D&#10;03 A 21 A 39 D 57 B"></textarea>
-                <div class="import-actions">
-                  <span class="field-hint">Aceita alternativas A, B, C, D e E.</span>
-                  <button type="button" class="button button-primary" id="parse-key-button">Ler e preencher <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
-                </div>
-                <p id="parse-key-feedback" class="parse-key-feedback hidden" role="status" aria-live="polite"></p>
-              </div>
-
-              <div class="setup-divider"><span>ou monte manualmente</span></div>
-
               <div class="setup-fields">
                 <div class="field-block">
                   <label for="question-count">Número de questões</label>
@@ -251,7 +234,6 @@
                 <div class="field-block">
                   <label for="start-number">Começa na questão</label>
                   <input id="start-number" type="number" min="1" max="9999" value="1" required />
-                  <span class="field-hint">Use outro número se o gabarito não começar em 1.</span>
                 </div>
               </div>
 
@@ -268,6 +250,21 @@
                   <span class="badge badge-green"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span> Respostas corretas</span>
                 </div>
                 <p class="section-desc">Selecione a alternativa correta de cada questão.</p>
+                <button type="button" class="button button-secondary import-toggle" id="open-import-button"><span class="material-symbols-outlined" aria-hidden="true">content_paste</span> Já tem o gabarito em texto?</button>
+                <div class="import-block hidden" id="import-panel">
+                  <div class="import-heading">
+                    <span class="section-kicker">Importação automática</span>
+                    <p>Cole o texto copiado. Se ele tiver os números das questões (como <strong>01 C 19 B 37 B</strong>), o Gabarita associa cada alternativa ao número certo, mesmo com as colunas misturadas.</p>
+                  </div>
+                  <label class="sr-only" for="pasted-key">Texto do gabarito oficial</label>
+                  <textarea id="pasted-key" rows="5" spellcheck="false" placeholder="01 C 19 B 37 B 55 A&#10;02 D 20 A 38 C 56 D&#10;03 A 21 A 39 D 57 B"></textarea>
+                  <div class="import-actions">
+                    <button type="button" class="text-button" id="cancel-import-button">Cancelar</button>
+                    <span class="field-hint">Aceita alternativas A, B, C, D e E.</span>
+                    <button type="button" class="button button-primary" id="parse-key-button">Ler e preencher <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
+                  </div>
+                  <p id="parse-key-feedback" class="parse-key-feedback hidden" role="status" aria-live="polite"></p>
+                </div>
                 <div id="key-grid" class="answer-grid"></div>
               </div>
 
