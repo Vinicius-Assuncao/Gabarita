@@ -465,6 +465,51 @@
     document.body.classList.remove('mobile-menu-open');
     if (wasOpen) els.mobileMenuToggle.focus();
   }
+  // ----- Rotas -----
+  const ROUTES = { home: '/inicio', history: '/historico', correction: '/corrigir' };
+  function parseRoute(pathname) {
+    const clean = pathname.replace(/\/+$/, '') || '/';
+    if (clean === '/' || clean === '/inicio' || clean === '/index.html') return { name: 'home' };
+    if (clean === '/historico') return { name: 'history' };
+    if (clean === '/corrigir') return { name: 'correction' };
+    let match = clean.match(/^\/correcao\/([^/]+)$/);
+    if (match) return { name: 'result', id: decodeURIComponent(match[1]) };
+    match = clean.match(/^\/correcao\/([^/]+)\/editar$/);
+    if (match) return { name: 'edit', id: decodeURIComponent(match[1]) };
+    return { name: 'unknown' };
+  }
+  function currentRoute() {
+    return location.hash.replace(/^#/, '') || '/';
+  }
+  function navigate(path, { replace = false } = {}) {
+    const url = '#' + path;
+    if (replace) history.replaceState({ gabarita: true }, '', url);
+    else if (location.hash !== url) history.pushState({ gabarita: true }, '', url);
+    applyRoute(path);
+  }
+  function applyRoute(path = currentRoute()) {
+    const route = parseRoute(path);
+    if (route.name === 'unknown') { navigate('/inicio', { replace: true }); return; }
+    if (route.name === 'home') { showScreen('home'); return; }
+    if (route.name === 'history') { showScreen('history'); return; }
+    if (route.name === 'correction') {
+      startNewDraft(); setDetailMode('edit'); showScreen('detail', 'correction');
+      return;
+    }
+    const item = submissions.find(entry => entry.id === route.id);
+    if (!item) {
+      showToast('Essa correção não foi encontrada.');
+      navigate('/historico', { replace: true });
+      return;
+    }
+    if (route.name === 'result') {
+      renderResult(item); setDetailMode('result'); showScreen('detail', 'history');
+    } else if (route.name === 'edit') {
+      editSubmission(item);
+    }
+  }
+  window.addEventListener('popstate', () => applyRoute(currentRoute()));
+
   function showScreen(screen, returnScreen = detailReturnScreen) {
     if (screen === 'detail') detailReturnScreen = returnScreen;
     document.querySelectorAll('[data-screen-panel]').forEach(panel => {
@@ -729,8 +774,7 @@
       : (currentUser ? `${actionText} localmente.` : `${actionText} no histórico!`);
     showToast(toast);
     startNewDraft();
-    setDetailMode('result');
-    showScreen('detail');
+    navigate(`/correcao/${encodeURIComponent(item.id)}`, { replace: true });
   });
 
   function calculate(item) {
@@ -1022,12 +1066,8 @@
       changeSubmissionStorage(item, !cloudSubmissionIds.has(item.id));
       return;
     }
-    if (action === 'view') {
-      renderResult(item);
-      setDetailMode('result');
-      showScreen('detail', 'history');
-    }
-    if (action === 'edit') editSubmission(item);
+    if (action === 'view') navigate(`/correcao/${encodeURIComponent(item.id)}`);
+    if (action === 'edit') navigate(`/correcao/${encodeURIComponent(item.id)}/editar`);
     if (action === 'delete') askConfirm({
       title: 'Excluir este envio?',
       message: `“${item.title}” será removido do histórico. Essa ação não pode ser desfeita.`,
@@ -1044,21 +1084,15 @@
       }
     });
   });
-  $('#start-correction-button').addEventListener('click',()=>{
-    startNewDraft();
-    setDetailMode('edit');
-    showScreen('detail', 'correction');
-  });
-  $('#new-correction-button').addEventListener('click',()=>{
-    startNewDraft();
-    setDetailMode('edit');
-    showScreen('detail', 'correction');
-  });
+  $('#start-correction-button').addEventListener('click',()=>navigate('/corrigir'));
+  $('#new-correction-button').addEventListener('click',()=>navigate('/corrigir'));
   $('#detail-edit-button').addEventListener('click',()=>{
-    const item = submissions.find(entry => entry.id === activeResultId);
-    if (item) editSubmission(item);
+    if (activeResultId) navigate(`/correcao/${encodeURIComponent(activeResultId)}/editar`);
   });
-  els.backToHistoryButton.addEventListener('click',()=>showScreen(detailReturnScreen));
+  els.backToHistoryButton.addEventListener('click',()=>{
+    if (history.state && history.state.gabarita) history.back();
+    else navigate(detailReturnScreen === 'history' ? '/historico' : '/inicio');
+  });
   $('#clear-history-button').addEventListener('click',()=>{
     if(!submissions.length){showToast('Seu histórico já está vazio.');return;}
     askConfirm({title:'Apagar todo o histórico?',message:currentUser ? 'Todas as correções locais e da nuvem serão removidas. Considere exportar uma cópia antes.' : 'Todos os resultados salvos neste navegador serão removidos. Considere exportar uma cópia antes.',confirmText:'Apagar tudo',onConfirm:async()=>{
@@ -1124,20 +1158,17 @@
   document.querySelectorAll('[data-screen]').forEach(link=>link.addEventListener('click',event=>{
     event.preventDefault();
     closeMobileMenu();
-    if (link.dataset.screen === 'correction') {
-      $('#start-correction-button').click();
-      return;
-    }
-    showScreen(link.dataset.screen);
+    navigate(ROUTES[link.dataset.screen]);
   }));
   $('#home-start-correction-button').addEventListener('click',()=>{
     $('#start-correction-button').click();
   });
-  $('#home-open-history-button').addEventListener('click',()=>showScreen('history'));
+  $('#home-open-history-button').addEventListener('click',()=>navigate('/historico'));
   els.signInButton?.addEventListener('click', signInWithGoogle);
   els.signOutButton?.addEventListener('click', signOutFromGoogle);
 
   renderStats();renderHistory();
+  applyRoute(currentRoute());
   updateAccountUI();
   if (supabaseClient) {
     supabaseClient.auth.onAuthStateChange((event, session) => {
