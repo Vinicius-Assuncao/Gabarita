@@ -490,6 +490,7 @@ p { margin: 0; }
 .review-card.correct::before { background: var(--green); }
 .review-card.wrong::before { background: var(--red); }
 .review-card.blank::before { background: #94a3b8; }
+.review-card.annulled::before { background: #64748b; }
 .review-card.filtered-out { display: none; }
 .review-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .review-question-number { font: 800 15px 'Manrope', sans-serif; color: var(--ink-soft); }
@@ -497,6 +498,7 @@ p { margin: 0; }
 .review-status.correct { background: var(--green-soft); color: var(--green-dark); }
 .review-status.wrong { background: var(--red-soft); color: var(--red-dark); }
 .review-status.blank { background: var(--line-soft); color: var(--muted); }
+.review-status.annulled { background: #eef2f7; color: #475569; }
 .review-card-subject { min-height: 26px; display: flex; align-items: center; }
 .review-answer-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .answer-choice {

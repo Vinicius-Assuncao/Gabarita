@@ -249,7 +249,7 @@
                   </div>
                   <span class="badge badge-green"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span> Respostas corretas</span>
                 </div>
-                <p class="section-desc">Selecione a alternativa correta de cada questão.</p>
+                <p class="section-desc">Selecione a alternativa correta ou marque a questão como anulada. Questões anuladas não entram no resultado.</p>
                 <button type="button" class="button button-secondary import-toggle" id="open-import-button"><span class="material-symbols-outlined" aria-hidden="true">content_paste</span> Já tem o gabarito em texto?</button>
                 <div class="import-block hidden" id="import-panel">
                   <div class="import-heading">
@@ -260,7 +260,7 @@
                   <textarea id="pasted-key" rows="5" spellcheck="false" placeholder="01 C 19 B 37 B 55 A&#10;02 D 20 A 38 C 56 D&#10;03 A 21 A 39 D 57 B"></textarea>
                   <div class="import-actions">
                     <button type="button" class="text-button" id="cancel-import-button">Cancelar</button>
-                    <span class="field-hint">Aceita alternativas A, B, C, D e E.</span>
+                    <span class="field-hint">Aceita A–E e questões anuladas (X, N ou ANULADA).</span>
                     <button type="button" class="button button-primary" id="parse-key-button">Ler e preencher <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
                   </div>
                   <p id="parse-key-feedback" class="parse-key-feedback hidden" role="status" aria-live="polite"></p>
@@ -375,6 +375,7 @@
                 <button type="button" class="review-filter correct-filter" data-filter="correct"><span class="material-symbols-outlined" aria-hidden="true">check</span> Acertadas <span data-count="correct">0</span></button>
                 <button type="button" class="review-filter wrong-filter" data-filter="wrong"><span class="material-symbols-outlined" aria-hidden="true">close</span> Erradas <span data-count="wrong">0</span></button>
                 <button type="button" class="review-filter blank-filter" data-filter="blank"><span class="material-symbols-outlined" aria-hidden="true">horizontal_rule</span> Em branco <span data-count="blank">0</span></button>
+                <button type="button" class="review-filter annulled-filter" data-filter="annulled"><span class="material-symbols-outlined" aria-hidden="true">block</span> Anuladas <span data-count="annulled">0</span></button>
                 <select id="review-subject-filter" class="review-subject-filter" aria-label="Filtrar questões por matéria"><option value="all">Todas as matérias</option></select>
               </div>
 

@@ -3,6 +3,7 @@
 
   const STORAGE_KEY = 'gabarita_submissions_v1';
   const LETTERS = ['A', 'B', 'C', 'D', 'E'];
+  const ANULADA = 'ANULADA';
 
   const SUBJECTS = [
     {name:'Sem matéria', icon:'circle', colors:{bg:'#f1f5f9', border:'#cbd5e1', ink:'#475569', light:'#f8fafc'}},
@@ -559,7 +560,12 @@
       select.setAttribute('aria-label', `${kind === 'key' ? 'Gabarito oficial' : 'Sua resposta'} — questão ${start + i}`);
       const blank = document.createElement('option'); blank.value = ''; blank.textContent = '—'; select.appendChild(blank);
       LETTERS.forEach(letter => { const option = document.createElement('option'); option.value = letter; option.textContent = letter; select.appendChild(option); });
-      select.value = LETTERS.includes(values[i]) ? values[i] : '';
+      if (kind === 'key') {
+        const annulled = document.createElement('option'); annulled.value = ANULADA; annulled.textContent = 'Anulada'; select.appendChild(annulled);
+        select.value = LETTERS.includes(values[i]) ? values[i] : isOfficialAnnulled(values[i]) ? ANULADA : '';
+      } else {
+        select.value = LETTERS.includes(values[i]) ? values[i] : '';
+      }
       wrapper.append(label, select); fragment.appendChild(wrapper);
     }
     container.replaceChildren(fragment);
@@ -594,6 +600,12 @@
     els.subjectGrid.replaceChildren(fragment);
   }
   function gridValues(container) { return Array.from(container.querySelectorAll('select')).map(select => select.value); }
+  function isOfficialAnnulled(value) {
+    return typeof value === 'string' && ['ANULADA', 'ANULADO', 'ANUL', 'X', 'N', '*', '-'].includes(value.trim().toUpperCase());
+  }
+  function normalizeOfficialKey(value) {
+    return isOfficialAnnulled(value) ? ANULADA : (LETTERS.includes(value) ? value : '');
+  }
 
   // Lê pares como "01 C 19 B 37 B" e associa cada alternativa ao número da questão.
   // Assim, gabaritos organizados em várias colunas continuam na ordem numérica correta.
@@ -601,13 +613,13 @@
     const normalized = String(text || '').toUpperCase().replace(/\u00A0/g, ' ').trim();
     if (!normalized) return { error: 'Cole o texto do gabarito antes de importar.' };
 
-    const pairPattern = /(?:^|[^A-Z0-9])(\d{1,4})\s*(?:[:.)\-–—]\s*)?([A-E])(?=$|[^A-Z0-9])/g;
+    const pairPattern = /(?:^|[^A-Z0-9])(\d{1,4})\s*(?:[:.)\-–—]\s*)?(ANULADA|ANULADO|ANUL|[A-E]|[XN])(?=$|[^A-Z0-9])/g;
     const numbered = new Map();
     const conflicts = [];
     let match;
     while ((match = pairPattern.exec(normalized)) !== null) {
       const number = Number(match[1]);
-      const letter = match[2];
+      const letter = normalizeOfficialKey(match[2]);
       if (!Number.isInteger(number) || number < 1 || number > 9999) continue;
       if (numbered.has(number) && numbered.get(number) !== letter) conflicts.push(number);
       else numbered.set(number, letter);
@@ -630,8 +642,9 @@
 
     // Sem numeração, aceita somente uma sequência de alternativas isoladas ou agrupadas.
     // Não varre palavras de um parágrafo para evitar transformar letras do texto em respostas.
-    if (/^[A-E\s,;|/()[\]{}.:;!?'"_–—-]+$/i.test(normalized)) {
-      const key = normalized.replace(/[^A-E]/g, '').split('');
+    if (/^[A-EXN\s,;|/()[\]{}.:;!?'"_–—*+-]+$/i.test(normalized)) {
+      const symbols = normalized.match(/[A-E]|[XN]/g) || [];
+      const key = symbols.map(normalizeOfficialKey).filter(value => value);
       if (key.length && key.length <= 200) {
         const start = Math.max(1, Number(els.startNumber.value) || 1);
         if (start + key.length - 1 > 9999) return { error: 'A sequência ultrapassa o número máximo de questão permitido.' };
@@ -743,8 +756,9 @@
   els.answersForm.addEventListener('submit', async event => {
     event.preventDefault(); if (!currentDraft) return;
     const key = gridValues(els.keyGrid), answers = gridValues(els.studentGrid), subjects = gridValues(els.subjectGrid);
-    const missing = key.findIndex(value => !LETTERS.includes(value));
+    const missing = key.findIndex(value => !LETTERS.includes(value) && !isOfficialAnnulled(value));
     if (missing !== -1) { showToast(`Preencha o gabarito oficial da questão ${currentDraft.start + missing}.`); els.keyGrid.querySelectorAll('select')[missing].focus(); return; }
+    key.forEach((value, index) => { key[index] = normalizeOfficialKey(value); });
     const now = new Date().toISOString();
     const old = submissions.find(item => item.id === editingId);
     const item = {id:editingId || makeId(), title:els.examTitle.value.trim() || `Prova de ${currentDraft.count} questões`, start:currentDraft.start, key, answers, subjects, createdAt:old?.createdAt || now, updatedAt:now};
@@ -778,12 +792,15 @@
   });
 
   function calculate(item) {
-    let correct=0, wrong=0, blank=0;
-    const details = item.key.map((key,i) => { const answer=item.answers[i] || ''; let status;
-      if (!answer) { blank++; status='blank'; } else if (answer===key) { correct++; status='correct'; } else { wrong++; status='wrong'; }
-      return {number:(Number(item.start)||1)+i, key, answer, status, subject:item.subjects?.[i] || 'Sem matéria'};
+    let correct=0, wrong=0, blank=0, annulled=0;
+    const details = item.key.map((key,i) => { const normalizedKey=normalizeOfficialKey(key); const answer=item.answers[i] || ''; let status;
+      if (isOfficialAnnulled(normalizedKey)) { annulled++; status='annulled'; }
+      else if (!answer) { blank++; status='blank'; } else if (answer===normalizedKey) { correct++; status='correct'; } else { wrong++; status='wrong'; }
+      return {number:(Number(item.start)||1)+i, key:normalizedKey, answer, status, subject:item.subjects?.[i] || 'Sem matéria'};
     });
-    const total=item.key.length; return {correct,wrong,blank,total,percent:total ? correct/total*100 : 0,details};
+    const total=item.key.length;
+    const applicableTotal=total-annulled;
+    return {correct,wrong,blank,annulled,total,applicableTotal,percent:applicableTotal ? correct/applicableTotal*100 : 0,details};
   }
   function renderResult(item) {
     if (!item) {
@@ -805,11 +822,12 @@
     els.resultEmpty.classList.add('hidden');
     els.resultContent.classList.remove('hidden');
     els.resultPercent.innerHTML = `${result.percent.toFixed(1).replace('.', ',')}<small>%</small>`;
-    els.resultCorrect.textContent = `${result.correct}/${result.total}`;
+    els.resultCorrect.textContent = `${result.correct}/${result.applicableTotal}`;
     els.resultWrong.textContent = String(result.wrong);
     els.resultBlank.textContent = String(result.blank);
     const subjectResults = new Map();
     result.details.forEach(detail => {
+      if (detail.status === 'annulled') return;
       const subject = normalizeSubject(detail.subject);
       const counts = subjectResults.get(subject) || {correct: 0, total: 0};
       counts.total++;
@@ -820,16 +838,17 @@
     renderSubjectPerformance();
     const degrees = result.percent * 3.6;
     els.scoreRing.style.background = `conic-gradient(#25b982 0deg, #25b982 ${degrees}deg, #edf0f5 ${degrees}deg 360deg)`;
-    els.reviewCount.textContent = `${result.total} questões`;
+    els.reviewCount.textContent = `${result.applicableTotal} questões válidas${result.annulled ? ` · ${result.annulled} anulada${result.annulled === 1 ? '' : 's'}` : ''}`;
 
     const countByStatus = result.details.reduce((counts, detail) => {
       counts[detail.status] += 1;
       return counts;
-    }, {correct: 0, wrong: 0, blank: 0});
+    }, {correct: 0, wrong: 0, blank: 0, annulled: 0});
     $('[data-count="all"]').textContent = String(result.total);
     $('[data-count="correct"]').textContent = String(countByStatus.correct);
     $('[data-count="wrong"]').textContent = String(countByStatus.wrong);
     $('[data-count="blank"]').textContent = String(countByStatus.blank);
+    $('[data-count="annulled"]').textContent = String(countByStatus.annulled);
 
     const subjectOrder = name => SUBJECTS.findIndex(subject => subject.name === name);
     const examSubjects = [...new Set(result.details.map(detail => normalizeSubject(detail.subject)))]
@@ -839,17 +858,18 @@
     els.reviewSubjectFilter.value = 'all';
 
     els.reviewList.innerHTML = result.details.map(detail => {
-      const statusIcon = detail.status === 'correct' ? 'check' : detail.status === 'wrong' ? 'close' : 'horizontal_rule';
-      const statusText = `<span class="material-symbols-outlined" aria-hidden="true">${statusIcon}</span> ${detail.status === 'correct' ? 'Acertou' : detail.status === 'wrong' ? 'Errou' : 'Em branco'}`;
+      const statusIcon = detail.status === 'correct' ? 'check' : detail.status === 'wrong' ? 'close' : detail.status === 'annulled' ? 'block' : 'horizontal_rule';
+      const statusText = `<span class="material-symbols-outlined" aria-hidden="true">${statusIcon}</span> ${detail.status === 'correct' ? 'Acertou' : detail.status === 'wrong' ? 'Errou' : detail.status === 'annulled' ? 'Anulada' : 'Em branco'}`;
       const yourAnswer = detail.answer || '—';
-      const answerDescription = detail.status === 'correct' ? 'Resposta certa' : detail.status === 'wrong' ? 'Resposta diferente do gabarito' : 'Questão sem resposta';
+      const officialAnswer = detail.status === 'annulled' ? '—' : detail.key;
+      const answerDescription = detail.status === 'correct' ? 'Resposta certa' : detail.status === 'wrong' ? 'Resposta diferente do gabarito' : detail.status === 'annulled' ? 'Questão anulada — não entra na nota ou nas contagens' : 'Questão sem resposta';
       const subject = subjectTag(detail.subject, 'review-subject-large');
       return `<article class="review-card ${detail.status}" data-status="${detail.status}" data-subject="${escapeHTML(detail.subject)}">
         <div class="review-card-top"><span class="review-question-number">Questão ${detail.number}</span><span class="review-status ${detail.status}">${statusText}</span></div>
         <div class="review-card-subject">${subject}</div>
         <div class="review-answer-pair">
           <div class="answer-choice ${detail.status === 'correct' ? 'chosen-correct' : detail.status === 'wrong' ? 'chosen-wrong' : 'chosen-blank'}"><span>Sua resposta</span><strong>${escapeHTML(yourAnswer)}</strong></div>
-          <div class="answer-choice official-answer"><span>Gabarito oficial</span><strong>${escapeHTML(detail.key)}</strong></div>
+          <div class="answer-choice official-answer"><span>Gabarito oficial</span><strong>${escapeHTML(officialAnswer)}</strong></div>
         </div>
         <div class="review-card-note ${detail.status}">${answerDescription}</div>
       </article>`;
@@ -994,7 +1014,7 @@
         ? `${subjects.slice(0, 5).map(subject => subjectTag(subject, 'history-subject-tag')).join('')}${subjects.length > 5 ? `<span class="subject-overflow">+${subjects.length - 5}</span>` : ''}`
         : subjectTag('Sem matéria', 'history-subject-tag');
       return `<article class="history-card" data-id="${escapeHTML(item.id)}">
-        <div class="history-card-top"><div class="exam-icon material-symbols-outlined" aria-hidden="true">description</div><div class="history-card-title"><h3 title="${escapeHTML(item.title || '')}">${escapeHTML(item.title || `Prova de ${result.total} questões`)}</h3><p>${escapeHTML(formatDate(item.updatedAt || item.createdAt))} · ${result.total} questões</p></div><span class="score-pill">${result.correct}/${result.total}</span></div>
+        <div class="history-card-top"><div class="exam-icon material-symbols-outlined" aria-hidden="true">description</div><div class="history-card-title"><h3 title="${escapeHTML(item.title || '')}">${escapeHTML(item.title || `Prova de ${result.total} questões`)}</h3><p>${escapeHTML(formatDate(item.updatedAt || item.createdAt))} · ${result.applicableTotal} questões${result.annulled ? ` · ${result.annulled} anulada${result.annulled === 1 ? '' : 's'}` : ''}</p></div><span class="score-pill">${result.correct}/${result.applicableTotal}</span></div>
         <div class="history-score-row"><strong>${pct.toFixed(1).replace('.', ',')}%</strong><div class="history-progress-track"><div class="history-progress-fill" style="width:${pct}%"></div></div><span>${result.correct} certas · ${result.wrong + result.blank} erradas</span></div>
         <div class="history-subject-tags">${subjectTags}</div>
         <div class="history-card-actions"><button class="row-action storage-action ${storageClass}" type="button" data-action="storage" aria-label="${storageLabel}" title="${storageLabel}" ${!currentUser || !supabaseClient || hasPendingOperation ? 'disabled' : ''}><span class="material-symbols-outlined" aria-hidden="true">${storageIcon}</span></button><button class="row-action view" type="button" data-action="view">Ver gabarito completo <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button><button class="row-action" type="button" data-action="edit">Editar</button><button class="row-action delete" type="button" data-action="delete">Excluir</button></div>
